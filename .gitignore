@@ -1,7 +1,56 @@
+# vibecheck .gitignore
+
+# --- OS / editor ---
 .DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Python ---
 __pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- Environments / secrets ---
 .venv/
+venv/
 .env
+.env.*
+*.pem
+*.key
+
+# --- Notebooks ---
+.ipynb_checkpoints/
+
+# --- Data / outputs (do not commit) ---
 data/raw/
 data/processed/
 outputs/
+runs/
+wandb/
+logs/
+
+# --- Models / artifacts ---
+checkpoints/
+models/
+*.pt
+*.pth
+*.onnx
+
+# --- Audio ---
+*.wav
+*.mp3
+*.flac
+*.m4a
+
+# --- Archives ---
+*.zip
+*.tar.gz
