@@ -1,0 +1,46 @@
+# requirements.txt — vibecheck
+
+# ---------- Core ----------
+numpy
+pandas
+scikit-learn
+scipy
+tqdm
+pyyaml
+rich
+
+# ---------- Images / CV ----------
+opencv-python
+Pillow
+scikit-image
+
+# ---------- Plotting / notebooks ----------
+matplotlib
+jupyter
+ipykernel
+
+# ---------- Deep learning / embeddings ----------
+torch
+torchvision
+transformers
+open-clip-torch
+
+# ---------- Data + labeling utilities ----------
+python-dotenv
+requests
+
+# Simple labeling UI
+streamlit
+# gradio?
+
+# ---------- Audio / playlists ----------
+librosa
+soundfile
+# spotipy   # only if using Spotify Web API ?
+
+# ---------- Dev / quality ----------
+pytest
+ruff
+black
+isort
+pre-commit
