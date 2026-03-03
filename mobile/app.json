@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "VibeCheck",
+    "slug": "vibecheck",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "vibecheck",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a1a2e"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cs4701.vibecheck",
+      "infoPlist": {
+        "NSCameraUsageDescription": "VibeCheck needs camera access to capture photos of your room or outfit",
+        "NSPhotoLibraryUsageDescription": "VibeCheck needs photo library access to select images for vibe analysis"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1a1a2e",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.vibecheck.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow VibeCheck to access your camera to capture photos for vibe analysis"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow VibeCheck to access your photos to analyze your vibe"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
