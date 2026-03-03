@@ -43,6 +43,40 @@ make demo
 
 ---
 
+## Mobile app (iOS)
+
+**Prerequisites:** Node.js 18+, Xcode (for simulator) or [Expo Go](https://apps.apple.com/app/expo-go/id982107779) on your iPhone.
+
+To try the React Native Expo app:
+
+```bash
+cd mobile
+npm install
+npm start
+```
+
+If `npm install` fails with peer dependency errors: `npm install --legacy-peer-deps`
+
+**Option A — Expo Go (easiest)**  
+1. Install [Expo Go](https://apps.apple.com/app/expo-go/id982107779) on your iPhone  
+2. Scan the QR code from the terminal (or enter the URL manually)  
+3. Ensure your phone and Mac are on the same WiFi
+
+**Option B — iOS Simulator**  
+```bash
+npm run ios
+```
+
+**Option C — Physical iPhone (dev build)**  
+```bash
+npx expo run:ios --device
+```
+Connect your iPhone via USB first. You may need to trust your developer certificate: Settings → General → VPN & Device Management.
+
+> See `mobile/README.md` for full docs, project structure, and backend integration.
+
+---
+
 ## Common commands
 ```bash
 make setup   # create venv + install deps + register jupyter kernel
@@ -54,9 +88,10 @@ make demo    # scripts/demo.py
 
 ---
 
-## Project structure (planned)
+## Project structure
 ```text
 vibecheck/
+  mobile/           # React Native Expo iOS app
   data/
     raw/            # not committed
     processed/      # not committed
