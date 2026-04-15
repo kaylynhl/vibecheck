@@ -1,16 +1,46 @@
-from pathlib import Path
 import argparse
+import json
+from pathlib import Path
+import sys
 
-def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("--img", type=str, default=None, help="Optional: path to an image")
-    args = p.parse_args()
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
-    print("vibecheck demo ✅")
-    if args.img:
-        path = Path(args.img)
-        print(f"img: {path} | exists: {path.exists()}")
-    print("Setup is working. Next step: implement feature extraction in src/vibecheck/features/")
+from vibecheck.errors import ConfigurationError, VibecheckError
+from vibecheck.pipeline import analyze_images_to_dict
+
+
+def main() -> int:
+    """Run the local CLI demo for the image-to-vibe pipeline."""
+    parser = argparse.ArgumentParser(description="Run the vibecheck image analysis pipeline.")
+    parser.add_argument(
+        "--img",
+        action="append",
+        dest="images",
+        required=True,
+        help="Path to an image. Repeat the flag for multiple images.",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=("room", "outfit"),
+        default=None,
+        help="Optional analysis mode hint.",
+    )
+    args = parser.parse_args()
+
+    try:
+        result = analyze_images_to_dict(args.images, mode=args.mode)
+    except ConfigurationError as exc:
+        print(f"Configuration error: {exc}", file=sys.stderr)
+        return 2
+    except VibecheckError as exc:
+        print(f"Pipeline error: {exc}", file=sys.stderr)
+        return 1
+
+    print(json.dumps(result, indent=2))
+    return 0
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
