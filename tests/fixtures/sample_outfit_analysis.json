@@ -1,0 +1,115 @@
+{
+  "raw_description": "A sleek fitted outfit with cream tones, smooth fabric, and a polished minimal silhouette.",
+  "extracted_tags": [
+    {
+      "category": "palette",
+      "value": "cream",
+      "confidence": 0.95,
+      "evidence": "cream"
+    },
+    {
+      "category": "texture",
+      "value": "smooth",
+      "confidence": 0.95,
+      "evidence": "smooth"
+    },
+    {
+      "category": "pattern",
+      "value": "solid",
+      "confidence": 0.95,
+      "evidence": "solid"
+    },
+    {
+      "category": "silhouette",
+      "value": "fitted",
+      "confidence": 0.95,
+      "evidence": "fitted"
+    },
+    {
+      "category": "texture",
+      "value": "sleek",
+      "confidence": 0.82,
+      "evidence": "sleek"
+    }
+  ],
+  "vibe_scores": [
+    {
+      "vibe": "clean girl",
+      "score": 0.7312,
+      "matched_keywords": [
+        "cream",
+        "fitted",
+        "sleek",
+        "smooth",
+        "solid"
+      ],
+      "description": "Fresh, polished minimalism with sleek silhouettes and natural light."
+    },
+    {
+      "vibe": "old money",
+      "score": 0.2984,
+      "matched_keywords": [
+        "cream"
+      ],
+      "description": "Quiet luxury with classic silhouettes, polished materials, and restraint."
+    },
+    {
+      "vibe": "minimalist",
+      "score": 0.2145,
+      "matched_keywords": [
+        "smooth",
+        "solid"
+      ],
+      "description": "Clean lines, restrained palettes, and intentional simplicity."
+    }
+  ],
+  "top_vibes": [
+    {
+      "vibe": "clean girl",
+      "score": 0.7312,
+      "matched_keywords": [
+        "cream",
+        "fitted",
+        "sleek",
+        "smooth",
+        "solid"
+      ],
+      "description": "Fresh, polished minimalism with sleek silhouettes and natural light."
+    },
+    {
+      "vibe": "old money",
+      "score": 0.2984,
+      "matched_keywords": [
+        "cream"
+      ],
+      "description": "Quiet luxury with classic silhouettes, polished materials, and restraint."
+    },
+    {
+      "vibe": "minimalist",
+      "score": 0.2145,
+      "matched_keywords": [
+        "smooth",
+        "solid"
+      ],
+      "description": "Clean lines, restrained palettes, and intentional simplicity."
+    }
+  ],
+  "confidence_notes": [],
+  "debug": {
+    "input_count": 1,
+    "input_kinds": [
+      "image/jpeg"
+    ],
+    "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "timings_ms": {
+      "normalize_inputs": 1,
+      "vision_description": 175,
+      "extract_tags": 2,
+      "score_vibes": 1
+    },
+    "warnings": [],
+    "scene_type": "outfit",
+    "validation_passed": true,
+    "parse_error": null
+  }
+}

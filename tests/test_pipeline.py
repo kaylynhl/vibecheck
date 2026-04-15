@@ -4,79 +4,11 @@ import pytest
 
 from vibecheck.errors import VisionAPIError, VisionOutputFormatError
 from vibecheck.pipeline import analyze_images, analyze_images_to_dict
-from vibecheck.schemas import VisionAnalysisPayload
+from helpers import FailingVisionClient, StubVisionClient, make_payload
 
 
-class StubVisionClient:
-    def __init__(self, payload: VisionAnalysisPayload, model: str = "stub-model") -> None:
-        self.payload = payload
-        self.model = model
-
-    def analyze_images(self, images, *, mode=None) -> VisionAnalysisPayload:
-        assert images
-        return self.payload
-
-
-class FailingVisionClient:
-    def __init__(self, error: Exception, model: str = "stub-model") -> None:
-        self.error = error
-        self.model = model
-
-    def analyze_images(self, images, *, mode=None) -> VisionAnalysisPayload:
-        raise self.error
-
-
-def make_payload(
-    *,
-    scene_type: str,
-    visual_summary: str,
-    palette=None,
-    lighting=None,
-    textures=None,
-    patterns=None,
-    silhouette_or_shape=None,
-    objects_or_items=None,
-    mood_descriptors=None,
-    aesthetic_descriptors=None,
-    vibe_query: str = "",
-    uncertainty_notes=None,
-    observed_facts=None,
-    uncertain_inferences=None,
-) -> VisionAnalysisPayload:
-    return VisionAnalysisPayload(
-        scene_type=scene_type,
-        visual_summary=visual_summary,
-        palette=palette or [],
-        lighting=lighting or [],
-        textures=textures or [],
-        patterns=patterns or [],
-        silhouette_or_shape=silhouette_or_shape or [],
-        objects_or_items=objects_or_items or [],
-        mood_descriptors=mood_descriptors or [],
-        aesthetic_descriptors=aesthetic_descriptors or [],
-        vibe_query=vibe_query,
-        uncertainty_notes=uncertainty_notes or [],
-        observed_facts=observed_facts or [],
-        uncertain_inferences=uncertain_inferences or [],
-    )
-
-
-def test_analyze_images_end_to_end() -> None:
-    client = StubVisionClient(
-        make_payload(
-            scene_type="room",
-            visual_summary="A cozy room with warm neutrals and wood furniture.",
-            palette=["warm neutrals"],
-            lighting=["natural"],
-            textures=["woven"],
-            patterns=["floral"],
-            objects_or_items=["wood furniture"],
-            mood_descriptors=["cozy"],
-            aesthetic_descriptors=["cottagecore"],
-            vibe_query="warm neutrals, natural light, woven textures, floral, wood",
-            uncertainty_notes=["Some corners are partially obscured."],
-        )
-    )
+def test_analyze_images_end_to_end(room_payload) -> None:
+    client = StubVisionClient(room_payload)
 
     result = analyze_images([b"\xff\xd8\xfffake"], mode="room", client=client)
 
@@ -87,21 +19,8 @@ def test_analyze_images_end_to_end() -> None:
     assert result.debug.model == "stub-model"
 
 
-def test_analyze_images_to_dict_returns_json_ready_shape() -> None:
-    client = StubVisionClient(
-        make_payload(
-            scene_type="outfit",
-            visual_summary="A sleek fitted outfit with cream tones.",
-            palette=["cream"],
-            lighting=["natural"],
-            textures=["smooth"],
-            patterns=["solid"],
-            silhouette_or_shape=["fitted"],
-            mood_descriptors=["polished"],
-            aesthetic_descriptors=["clean girl"],
-            vibe_query="cream, smooth fabric, fitted silhouette, polished minimal outfit",
-        )
-    )
+def test_analyze_images_to_dict_returns_json_ready_shape(outfit_payload) -> None:
+    client = StubVisionClient(outfit_payload)
 
     result = analyze_images_to_dict([b"\xff\xd8\xfffake"], mode="outfit", client=client)
 
@@ -154,16 +73,8 @@ def test_analyze_images_uses_vibe_query_and_structured_fields_for_tag_extraction
     assert {tag.value for tag in result.extracted_tags} >= {"cream", "smooth", "solid", "fitted"}
 
 
-def test_analyze_images_adds_scene_mode_mismatch_note() -> None:
-    client = StubVisionClient(
-        make_payload(
-            scene_type="room",
-            visual_summary="A bright interior with warm neutrals.",
-            palette=["warm neutrals"],
-            lighting=["natural"],
-            vibe_query="warm neutrals, bright room",
-        )
-    )
+def test_analyze_images_adds_scene_mode_mismatch_note(room_payload) -> None:
+    client = StubVisionClient(room_payload)
 
     result = analyze_images([b"\xff\xd8\xfffake"], mode="outfit", client=client)
 
@@ -171,10 +82,8 @@ def test_analyze_images_adds_scene_mode_mismatch_note() -> None:
     assert any("did not match" in warning for warning in result.debug.warnings)
 
 
-def test_analyze_images_handles_malformed_vision_output_gracefully() -> None:
-    client = FailingVisionClient(
-        VisionOutputFormatError("Groq vision output was not valid JSON.")
-    )
+def test_analyze_images_handles_malformed_vision_output_gracefully(malformed_output_error) -> None:
+    client = FailingVisionClient(malformed_output_error)
 
     result = analyze_images([b"\xff\xd8\xfffake"], mode="room", client=client)
 
@@ -187,8 +96,23 @@ def test_analyze_images_handles_malformed_vision_output_gracefully() -> None:
     assert any("malformed or invalid" in note for note in result.confidence_notes)
 
 
-def test_analyze_images_does_not_swallow_provider_failures() -> None:
-    client = FailingVisionClient(VisionAPIError("Groq vision API returned 500: server error"))
+def test_analyze_images_does_not_swallow_provider_failures(provider_failure_error) -> None:
+    client = FailingVisionClient(provider_failure_error)
 
     with pytest.raises(VisionAPIError):
         analyze_images([b"\xff\xd8\xfffake"], mode="room", client=client)
+
+
+def test_analyze_images_supports_multi_image_requests(room_payload) -> None:
+    client = StubVisionClient(room_payload)
+
+    result = analyze_images(
+        [b"\xff\xd8\xfffirst", b"\xff\xd8\xffsecond"],
+        mode="room",
+        client=client,
+    )
+
+    assert result.top_vibes
+    assert len(client.calls) == 1
+    assert len(client.calls[0]["images"]) == 2
+    assert client.calls[0]["mode"] == "room"

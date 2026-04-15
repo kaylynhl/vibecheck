@@ -31,6 +31,18 @@ def test_normalize_bytes_input_uses_sniffed_mime_type() -> None:
     assert result[0].origin == "bytes[0]"
 
 
+def test_normalize_multi_image_inputs_mixes_paths_and_bytes(tmp_path: Path) -> None:
+    image_path = tmp_path / "sample.png"
+    image_path.write_bytes(b"\x89PNG\r\n\x1a\nrest")
+
+    result = normalize_image_inputs([image_path, b"\xff\xd8\xffsecond"])
+
+    assert len(result) == 2
+    assert result[0].mime_type == "image/png"
+    assert result[1].mime_type == "image/jpeg"
+    assert result[1].origin == "bytes[1]"
+
+
 def test_sniff_mime_type_defaults_to_jpeg() -> None:
     assert sniff_mime_type(b"not-a-known-signature") == "image/jpeg"
 

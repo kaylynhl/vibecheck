@@ -1,0 +1,123 @@
+{
+  "raw_description": "A cozy room with warm neutrals, natural light, wood furniture, and woven textures that read as soft and cottage-inspired.",
+  "extracted_tags": [
+    {
+      "category": "palette",
+      "value": "warm neutrals",
+      "confidence": 0.95,
+      "evidence": "warm neutrals"
+    },
+    {
+      "category": "lighting",
+      "value": "natural",
+      "confidence": 0.95,
+      "evidence": "natural"
+    },
+    {
+      "category": "texture",
+      "value": "woven",
+      "confidence": 0.95,
+      "evidence": "woven"
+    },
+    {
+      "category": "material",
+      "value": "wood",
+      "confidence": 0.95,
+      "evidence": "wood"
+    },
+    {
+      "category": "texture",
+      "value": "cozy",
+      "confidence": 0.82,
+      "evidence": "cozy"
+    }
+  ],
+  "vibe_scores": [
+    {
+      "vibe": "cottagecore",
+      "score": 0.7856,
+      "matched_keywords": [
+        "cozy",
+        "natural",
+        "warm neutrals",
+        "wood",
+        "woven"
+      ],
+      "description": "Romanticized rural life with soft, natural elements and vintage charm."
+    },
+    {
+      "vibe": "scandinavian",
+      "score": 0.4056,
+      "matched_keywords": [
+        "cozy",
+        "natural",
+        "wood"
+      ],
+      "description": "Nordic calm with airy neutrals, wood, and cozy simplicity."
+    },
+    {
+      "vibe": "japandi",
+      "score": 0.3798,
+      "matched_keywords": [
+        "natural",
+        "warm neutrals",
+        "wood"
+      ],
+      "description": "Quiet fusion of Japanese and Scandinavian minimalism with natural materials."
+    }
+  ],
+  "top_vibes": [
+    {
+      "vibe": "cottagecore",
+      "score": 0.7856,
+      "matched_keywords": [
+        "cozy",
+        "natural",
+        "warm neutrals",
+        "wood",
+        "woven"
+      ],
+      "description": "Romanticized rural life with soft, natural elements and vintage charm."
+    },
+    {
+      "vibe": "scandinavian",
+      "score": 0.4056,
+      "matched_keywords": [
+        "cozy",
+        "natural",
+        "wood"
+      ],
+      "description": "Nordic calm with airy neutrals, wood, and cozy simplicity."
+    },
+    {
+      "vibe": "japandi",
+      "score": 0.3798,
+      "matched_keywords": [
+        "natural",
+        "warm neutrals",
+        "wood"
+      ],
+      "description": "Quiet fusion of Japanese and Scandinavian minimalism with natural materials."
+    }
+  ],
+  "confidence_notes": [
+    "Some corners are partially obscured."
+  ],
+  "debug": {
+    "input_count": 1,
+    "input_kinds": [
+      "image/jpeg"
+    ],
+    "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "timings_ms": {
+      "normalize_inputs": 1,
+      "vision_description": 180,
+      "extract_tags": 2,
+      "score_vibes": 1
+    },
+    "warnings": [],
+    "scene_type": "room",
+    "validation_passed": true,
+    "parse_error": null
+  }
+}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from vibecheck.schemas import ExtractedTag
+from vibecheck.tags.extract import extract_structured_tags
 from vibecheck.vibe.scoring import score_vibes
 
 
@@ -26,6 +27,26 @@ def test_score_vibes_ranks_clean_girl_for_matching_outfit_tags() -> None:
         ExtractedTag(category="palette", value="cream", confidence=0.88, evidence="cream"),
         ExtractedTag(category="pattern", value="solid", confidence=0.8, evidence="solid"),
     ]
+
+    scores, _ = score_vibes(tags, mode="outfit")
+
+    assert scores[0].vibe == "clean girl"
+
+
+def test_score_vibes_with_representative_room_description() -> None:
+    tags = extract_structured_tags(
+        "A cozy room with warm neutrals, natural light, woven textures, floral accents, and wood furniture."
+    )
+
+    scores, _ = score_vibes(tags, mode="room")
+
+    assert scores[0].vibe == "cottagecore"
+
+
+def test_score_vibes_with_representative_outfit_description() -> None:
+    tags = extract_structured_tags(
+        "A sleek fitted outfit with cream tones, smooth texture, and a solid polished look."
+    )
 
     scores, _ = score_vibes(tags, mode="outfit")
 

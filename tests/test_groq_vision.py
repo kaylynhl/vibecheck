@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import requests
 
 import pytest
@@ -87,29 +88,14 @@ def test_analyze_images_wraps_error_status() -> None:
         client.analyze_images(normalize_image_inputs([b"\xff\xd8\xfffake"]))
 
 
-def test_analyze_images_returns_structured_payload() -> None:
+def test_analyze_images_returns_structured_payload(room_payload) -> None:
     client = GroqVisionClient(
         api_key="test-key",
         session=DummySession(
             DummyResponse(
                 200,
                 payload={
-                    "output_text": """{
-                      "scene_type": "room",
-                      "visual_summary": "A grounded room description.",
-                      "palette": ["warm neutrals"],
-                      "lighting": ["natural"],
-                      "textures": ["woven"],
-                      "patterns": ["floral"],
-                      "silhouette_or_shape": ["structured"],
-                      "objects_or_items": ["wood chair"],
-                      "mood_descriptors": ["cozy"],
-                      "aesthetic_descriptors": ["cottagecore"],
-                      "vibe_query": "warm neutrals, natural light, woven textures",
-                      "uncertainty_notes": ["Some details are partially obscured."],
-                      "observed_facts": ["wood furniture"],
-                      "uncertain_inferences": ["possibly vintage-inspired"]
-                    }"""
+                    "output_text": json.dumps(room_payload.to_dict())
                 },
             )
         ),
@@ -118,7 +104,21 @@ def test_analyze_images_returns_structured_payload() -> None:
     payload = client.analyze_images(normalize_image_inputs([b"\xff\xd8\xfffake"]))
 
     assert payload.scene_type == "room"
-    assert payload.visual_summary == "A grounded room description."
+    assert payload.visual_summary == room_payload.visual_summary
+
+
+def test_parse_vision_analysis_output_accepts_representative_room_json(room_payload) -> None:
+    payload = parse_vision_analysis_output(json.dumps(room_payload.to_dict()))
+
+    assert payload.scene_type == "room"
+    assert "warm neutrals" in payload.palette
+
+
+def test_parse_vision_analysis_output_accepts_representative_outfit_json(outfit_payload) -> None:
+    payload = parse_vision_analysis_output(json.dumps(outfit_payload.to_dict()))
+
+    assert payload.scene_type == "outfit"
+    assert "fitted" in payload.silhouette_or_shape
 
 
 def test_build_vision_prompts_include_required_instructions() -> None:
