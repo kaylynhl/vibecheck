@@ -17,5 +17,9 @@ class VisionAPIError(VibecheckError):
     """Raised when the Groq vision API request fails or returns unusable data."""
 
 
+class VisionOutputFormatError(VisionAPIError):
+    """Raised when the Groq vision response cannot be parsed into the expected schema."""
+
+
 class TagExtractionError(VibecheckError):
     """Raised when structured tags cannot be extracted from the description."""

@@ -2,34 +2,73 @@
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 from typing import Any, Sequence
 
 import requests
 
-from vibecheck.errors import ConfigurationError, VisionAPIError
+from vibecheck.errors import ConfigurationError, VisionAPIError, VisionOutputFormatError
 from vibecheck.features.image_inputs import encode_image_as_data_url
-from vibecheck.schemas import ImageSource
+from vibecheck.schemas import ImageSource, VisionAnalysisPayload
 
 DEFAULT_GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 DEFAULT_GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
-_ANALYSIS_PROMPT = """You are a visual style analyst for an aesthetic recommendation system.
-Analyze all provided images together as one request. Produce a dense natural-language description
-that captures the overall vibe and the important visual evidence. Cover:
-- setting and whether this appears to be a room or outfit
-- main color palette and contrast
-- lighting quality and mood
+VISION_SYSTEM_PROMPT = """You are a visual aesthetic analyst for room and outfit photos.
+Your job is to produce grounded observations that help classify aesthetics and vibes.
+
+Rules:
+- Analyze only what is visibly supported by the images.
+- Do not invent facts, brands, provenance, specific eras, materials, or intent unless they are visually justified.
+- Keep direct observations separate from uncertain guesses.
+- Prefer concrete, keyword-rich language useful for downstream vibe matching.
+- If something is ambiguous, say so in the uncertainty fields instead of presenting it as fact.
+- Output strict JSON only. No markdown, no code fences, no commentary outside the JSON object."""
+
+VISION_USER_PROMPT_TEMPLATE = """Analyze all provided images together as one aesthetic-analysis request.
+{mode_instruction}
+
+Return exactly one JSON object with this shape:
+{{
+  "scene_type": "room | outfit | mixed | unclear",
+  "visual_summary": "2-4 sentence grounded visual description.",
+  "palette": ["short descriptive strings"],
+  "lighting": ["short descriptive strings"],
+  "textures": ["short descriptive strings"],
+  "patterns": ["short descriptive strings"],
+  "silhouette_or_shape": ["short descriptive strings"],
+  "objects_or_items": ["short descriptive strings"],
+  "mood_descriptors": ["short descriptive strings"],
+  "aesthetic_descriptors": ["short descriptive strings"],
+  "vibe_query": "comma-separated keywords and short phrases for vibe matching",
+  "uncertainty_notes": ["short descriptive strings"],
+  "observed_facts": ["short descriptive strings"],
+  "uncertain_inferences": ["short descriptive strings"]
+}}
+
+Cover these dimensions in the JSON fields:
+- color palette
+- lighting
 - materials and textures
-- patterns and silhouette/shape cues
-- notable furniture, decor, garments, accessories, or styling choices
-- how cohesive or mixed the visuals feel
-- any uncertainty or ambiguity
+- silhouette or shape language
+- patterns
+- clutter versus minimalism
+- styling coherence
+- mood
+- era or cultural cues
+- standout objects, decor, garments, or fashion pieces
+- likely intended aesthetics
+- possible ambiguities
 
-Write clearly and concretely. Do not output JSON. Do not recommend products or music."""
+Requirements:
+- Keep the summary dense but grounded in what is visible.
+- Use the vibe_query field as a compact search-style string of descriptive keywords and short phrases.
+- Put uncertain guesses only in uncertainty_notes and uncertain_inferences.
+- If the scene type is not clear, use "unclear"."""
 
-
+_SCENE_TYPES = {"room", "outfit", "mixed", "unclear"}
 @dataclass
 class GroqVisionClient:
     """Thin client for Groq's OpenAI-compatible Responses API."""
@@ -56,8 +95,8 @@ class GroqVisionClient:
         images: Sequence[ImageSource],
         *,
         mode: str | None = None,
-    ) -> str:
-        """Return a detailed natural-language description for the provided images."""
+    ) -> VisionAnalysisPayload:
+        """Return a validated structured aesthetic analysis for the provided images."""
         payload = self.build_payload(images, mode=mode)
         url = f"{self.base_url.rstrip('/')}/responses"
         headers = {
@@ -87,8 +126,8 @@ class GroqVisionClient:
 
         output_text = self.extract_output_text(body)
         if not output_text.strip():
-            raise VisionAPIError("Groq vision API returned an empty description.")
-        return output_text.strip()
+            raise VisionAPIError("Groq vision API returned an empty structured response.")
+        return parse_vision_analysis_output(output_text.strip())
 
     def build_payload(
         self,
@@ -97,18 +136,16 @@ class GroqVisionClient:
         mode: str | None = None,
     ) -> dict[str, Any]:
         """Build the JSON payload for a Groq Responses API request."""
-        prompt = _ANALYSIS_PROMPT
-        if mode:
-            prompt = f"{prompt}\n\nThe caller expects analysis for mode: {mode}."
+        system_prompt, user_prompt = build_vision_prompts(mode)
 
-        content: list[dict[str, Any]] = [
+        user_content: list[dict[str, Any]] = [
             {
                 "type": "input_text",
-                "text": prompt,
+                "text": user_prompt,
             }
         ]
         for image in images:
-            content.append(
+            user_content.append(
                 {
                     "type": "input_image",
                     "detail": "auto",
@@ -120,8 +157,12 @@ class GroqVisionClient:
             "model": self.model,
             "input": [
                 {
+                    "role": "system",
+                    "content": [{"type": "input_text", "text": system_prompt}],
+                },
+                {
                     "role": "user",
-                    "content": content,
+                    "content": user_content,
                 }
             ],
         }
@@ -144,3 +185,106 @@ class GroqVisionClient:
                 if isinstance(text_value, str):
                     fragments.append(text_value)
         return "\n".join(fragment for fragment in fragments if fragment)
+
+
+def build_vision_prompts(mode: str | None) -> tuple[str, str]:
+    """Build the system and user prompts for the vision model."""
+    mode_instruction = (
+        f"The caller provided a mode hint: {mode}. Use it as context, but do not force the classification if the images disagree."
+        if mode
+        else "No mode hint was provided. Infer the scene type only from visible evidence."
+    )
+    return VISION_SYSTEM_PROMPT, VISION_USER_PROMPT_TEMPLATE.format(
+        mode_instruction=mode_instruction
+    )
+
+
+def parse_vision_analysis_output(text: str) -> VisionAnalysisPayload:
+    """Parse and strictly validate the structured JSON returned by the model."""
+    try:
+        payload = json.loads(text)
+    except ValueError as exc:
+        raise VisionOutputFormatError("Groq vision output was not valid JSON.") from exc
+
+    if not isinstance(payload, dict):
+        raise VisionOutputFormatError("Groq vision output must be a top-level JSON object.")
+
+    scene_type = _require_string(payload, "scene_type")
+    if scene_type not in _SCENE_TYPES:
+        raise VisionOutputFormatError(
+            "Groq vision output contained an invalid scene_type."
+        )
+
+    visual_summary = _require_string(payload, "visual_summary")
+    vibe_query = _require_string(payload, "vibe_query")
+
+    return VisionAnalysisPayload(
+        scene_type=scene_type,
+        visual_summary=visual_summary,
+        palette=_require_string_list(payload, "palette"),
+        lighting=_require_string_list(payload, "lighting"),
+        textures=_require_string_list(payload, "textures"),
+        patterns=_require_string_list(payload, "patterns"),
+        silhouette_or_shape=_require_string_list(payload, "silhouette_or_shape"),
+        objects_or_items=_require_string_list(payload, "objects_or_items"),
+        mood_descriptors=_require_string_list(payload, "mood_descriptors"),
+        aesthetic_descriptors=_require_string_list(payload, "aesthetic_descriptors"),
+        vibe_query=vibe_query,
+        uncertainty_notes=_require_string_list(payload, "uncertainty_notes"),
+        observed_facts=_require_string_list(payload, "observed_facts"),
+        uncertain_inferences=_require_string_list(payload, "uncertain_inferences"),
+    )
+
+
+def compose_tag_extraction_text(payload: VisionAnalysisPayload) -> str:
+    """Flatten the structured payload into keyword-rich text for tag extraction."""
+    parts = [
+        payload.visual_summary,
+        ", ".join(payload.palette),
+        ", ".join(payload.lighting),
+        ", ".join(payload.textures),
+        ", ".join(payload.patterns),
+        ", ".join(payload.silhouette_or_shape),
+        ", ".join(payload.objects_or_items),
+        ", ".join(payload.mood_descriptors),
+        ", ".join(payload.aesthetic_descriptors),
+        payload.vibe_query,
+        ", ".join(payload.observed_facts),
+        ", ".join(payload.uncertain_inferences),
+    ]
+    return "\n".join(part.strip() for part in parts if part and part.strip())
+
+
+def _require_string(payload: dict[str, Any], field: str) -> str:
+    """Return a normalized required string field."""
+    value = payload.get(field)
+    if not isinstance(value, str):
+        raise VisionOutputFormatError(
+            f"Groq vision output field '{field}' must be a string."
+        )
+    normalized = value.strip()
+    if not normalized:
+        raise VisionOutputFormatError(
+            f"Groq vision output field '{field}' cannot be empty."
+        )
+    return normalized
+
+
+def _require_string_list(payload: dict[str, Any], field: str) -> list[str]:
+    """Return a normalized required list[str] field."""
+    value = payload.get(field)
+    if not isinstance(value, list):
+        raise VisionOutputFormatError(
+            f"Groq vision output field '{field}' must be a list."
+        )
+
+    normalized: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            raise VisionOutputFormatError(
+                f"Groq vision output field '{field}' must contain only strings."
+            )
+        stripped = item.strip()
+        if stripped:
+            normalized.append(stripped)
+    return normalized

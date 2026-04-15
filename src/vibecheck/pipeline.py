@@ -6,7 +6,11 @@ from pathlib import Path
 from time import perf_counter
 from typing import Literal, Sequence
 
-from vibecheck.features.groq_vision import GroqVisionClient
+from vibecheck.errors import VisionOutputFormatError
+from vibecheck.features.groq_vision import (
+    GroqVisionClient,
+    compose_tag_extraction_text,
+)
 from vibecheck.features.image_inputs import normalize_image_inputs
 from vibecheck.schemas import DebugInfo, VibeAnalysisResult
 from vibecheck.tags.extract import extract_structured_tags
@@ -31,17 +35,72 @@ def analyze_images(
 
     vision_client = client or GroqVisionClient()
 
+    raw_description = ""
+    extracted_tags = []
+    validation_passed = True
+    parse_error: str | None = None
+    scene_type: str | None = None
+
     start = perf_counter()
-    raw_description = vision_client.analyze_images(normalized_inputs, mode=mode)
+    try:
+        vision_payload = vision_client.analyze_images(normalized_inputs, mode=mode)
+        raw_description = vision_payload.visual_summary
+        scene_type = vision_payload.scene_type
+    except VisionOutputFormatError as exc:
+        validation_passed = False
+        parse_error = str(exc)
+        warnings.append(
+            "Vision model output could not be parsed into the required structured JSON."
+        )
+        confidence_notes = [
+            "Vision output was malformed or invalid, so rankings are low-confidence."
+        ]
+        timings_ms["vision_description"] = _elapsed_ms(start)
+
+        start = perf_counter()
+        vibe_scores, score_notes = score_vibes(extracted_tags, mode=mode)
+        timings_ms["score_vibes"] = _elapsed_ms(start)
+        confidence_notes.extend(score_notes)
+
+        top_vibes = vibe_scores[:3]
+        debug = DebugInfo(
+            input_count=len(normalized_inputs),
+            input_kinds=[image.mime_type for image in normalized_inputs],
+            model=vision_client.model or "",
+            timings_ms=timings_ms,
+            warnings=warnings,
+            scene_type=scene_type,
+            validation_passed=validation_passed,
+            parse_error=parse_error,
+        )
+        return VibeAnalysisResult(
+            raw_description=raw_description,
+            extracted_tags=extracted_tags,
+            vibe_scores=vibe_scores,
+            top_vibes=top_vibes,
+            confidence_notes=confidence_notes,
+            debug=debug,
+        )
     timings_ms["vision_description"] = _elapsed_ms(start)
 
     start = perf_counter()
-    extracted_tags = extract_structured_tags(raw_description)
+    extracted_tags = extract_structured_tags(compose_tag_extraction_text(vision_payload))
     timings_ms["extract_tags"] = _elapsed_ms(start)
 
     start = perf_counter()
     vibe_scores, confidence_notes = score_vibes(extracted_tags, mode=mode)
     timings_ms["score_vibes"] = _elapsed_ms(start)
+
+    if mode and scene_type and scene_type not in {mode, "mixed", "unclear"}:
+        warnings.append(
+            f"Scene type '{scene_type}' did not match the requested mode '{mode}'."
+        )
+        confidence_notes = [
+            f"Detected scene type '{scene_type}' may not align with the requested mode '{mode}'."
+        ] + confidence_notes
+
+    if vision_payload.uncertainty_notes:
+        confidence_notes.extend(vision_payload.uncertainty_notes)
 
     if not extracted_tags:
         warnings.append(
@@ -62,6 +121,9 @@ def analyze_images(
         model=vision_client.model or "",
         timings_ms=timings_ms,
         warnings=warnings,
+        scene_type=scene_type,
+        validation_passed=validation_passed,
+        parse_error=parse_error,
     )
     return VibeAnalysisResult(
         raw_description=raw_description,
