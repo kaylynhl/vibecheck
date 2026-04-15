@@ -41,6 +41,44 @@ python -m ipykernel install --user --name vibecheck --display-name "vibecheck"
 make demo
 ```
 
+## Image-to-Vibe Pipeline
+
+The backend pipeline turns one or more room/outfit images into structured vibe analysis. It:
+- normalizes local image inputs
+- calls Groq vision for structured visual analysis
+- extracts normalized tags
+- scores and ranks likely vibes
+- returns a cleaned JSON-ready result for downstream consumers
+
+Main code paths:
+- `src/vibecheck/pipeline.py`
+- `src/vibecheck/features/`
+- `src/vibecheck/tags/`
+- `src/vibecheck/vibe/`
+
+Required environment:
+- `GROQ_API_KEY` required
+- `GROQ_VISION_MODEL` optional override
+
+Run locally:
+```bash
+python scripts/demo.py --img path/to/image.jpg --mode room
+python scripts/demo.py --img room1.jpg --img room2.jpg --mode room
+```
+
+Current limitations:
+- depends on Groq returning valid structured output
+- tag extraction and vibe ranking are still heuristic
+- the backend stops at analysis; recommendation generation is still downstream work
+
+Easiest next improvements:
+- expand tag vocabulary and synonym coverage
+- wrap `vibecheck.pipeline.analyze_images(...)` in an API endpoint
+- tune score weights with real examples
+- replace heuristic matching with learned retrieval/classification later
+
+See `mobile/README.md` for app-facing integration guidance.
+
 ---
 
 ## Mobile app (iOS)

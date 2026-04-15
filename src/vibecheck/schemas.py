@@ -62,9 +62,36 @@ class DebugInfo:
     model: str
     timings_ms: dict[str, int]
     warnings: list[str] = field(default_factory=list)
+    scene_type: str | None = None
+    validation_passed: bool = True
+    parse_error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-safe representation of the debug information."""
+        return asdict(self)
+
+
+@dataclass
+class VisionAnalysisPayload:
+    """Structured internal representation of the Groq vision response."""
+
+    scene_type: str
+    visual_summary: str
+    palette: list[str]
+    lighting: list[str]
+    textures: list[str]
+    patterns: list[str]
+    silhouette_or_shape: list[str]
+    objects_or_items: list[str]
+    mood_descriptors: list[str]
+    aesthetic_descriptors: list[str]
+    vibe_query: str
+    uncertainty_notes: list[str]
+    observed_facts: list[str]
+    uncertain_inferences: list[str]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-safe representation of the structured payload."""
         return asdict(self)
 
 

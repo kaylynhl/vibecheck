@@ -107,19 +107,62 @@ Content-Type: multipart/form-data
 Body:
 - mode: "room" | "outfit"
 - photos: File[]
+```
 
-Response:
+The future backend endpoint should call `vibecheck.pipeline.analyze_images(...)` and adapt the backend analysis result into the app-facing response shape.
+
+### Current Backend Pipeline Contract
+
+Python entrypoint:
+
+```python
+from vibecheck.pipeline import analyze_images
+```
+
+Input:
+- one or more image files
+- optional mode hint: `"room"` or `"outfit"`
+
+Current cleaned backend result:
+
+```json
 {
-  id: string,
-  photos: string[],
-  mode: string,
-  tags: Tag[],
-  vibes: VibeResult[],
-  itemRecommendations: Item[],
-  playlistRecommendation: Playlist,
-  createdAt: string
+  "raw_description": "string",
+  "extracted_tags": [
+    {
+      "category": "string",
+      "value": "string",
+      "confidence": 0.0,
+      "evidence": "string"
+    }
+  ],
+  "vibe_scores": [
+    {
+      "vibe": "string",
+      "score": 0.0,
+      "matched_keywords": ["string"],
+      "description": "string"
+    }
+  ],
+  "top_vibes": [],
+  "confidence_notes": ["string"],
+  "debug": {}
 }
 ```
+
+### How Mobile and Recommendation Layers Should Consume It
+
+- Use `top_vibes` for primary UI display and ranked vibe summaries.
+- Use `vibe_scores` for weighted ranking or blending in downstream recommendation logic.
+- Use `extracted_tags` as interpretable visual features for filtering and matching songs, items, or decor.
+- Use `raw_description` only as secondary explainability or debug context.
+- Do not treat `debug` as product-facing UI content.
+
+### Integration Notes
+
+- The backend output is analysis-first, not the final mobile response shape.
+- The API layer should transform analysis output into the app’s `VibeCheck` response model and attach recommendation results separately.
+- A future `POST /api/analyze` wrapper should handle file upload parsing, call `analyze_images(...)`, and then map the result into mobile-friendly fields.
 
 ## Supported Aesthetics
 
