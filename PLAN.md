@@ -40,8 +40,8 @@ the result so we can run a small human study at the end.
 | Music playlist recommendation                            | done (live Spotify search + rerank) | `src/vibecheck/rec/playlists.py`, `src/vibecheck/rec/spotify_client.py`    |
 | Multi-photo aggregation experiment                       | **not built**                      | --                                                                         |
 | Tag F1 / aesthetic accuracy evaluation                   | **not built**                      | --                                                                         |
-| FastAPI HTTP server (mobile expects `POST /api/analyze`) | **not built**                      | --                                                                         |
-| Mobile app integration (currently 100% mocked)           | **not built**                      | `mobile/`                                                                  |
+| FastAPI HTTP server (`/api/analyze`, `/api/feedback`)    | done                               | `src/vibecheck/server/`, `scripts/serve.py`                                |
+| Mobile app integration (real backend, no more mocks)     | done                               | `mobile/services/api.ts`, `mobile/app/(tabs)/index.tsx`                    |
 | Human evaluation collection                              | **not built**                      | --                                                                         |
 
 
@@ -397,25 +397,103 @@ cover each tag category, and how diverse they are (avg pairwise cosine).
 
 Deliverable: 2-3 tables and 1-2 figures for the report.
 
-### Step 8 — App integration (saved for last on purpose)
+### Step 8 — App integration *(DONE)*
 
 Goal: connect mobile to the real backend.
 
-- `src/vibecheck/server/app.py` -- FastAPI app with a single
-`POST /api/analyze` route that accepts multipart photos + mode and calls
-`analyze_images(with_recommendations=True)`
-- `scripts/serve.py` -- `uvicorn vibecheck.server.app:app --reload`
-- Add `fastapi`, `uvicorn`, `python-multipart` to `requirements.txt`
-- In mobile `app/(tabs)/index.tsx`, switch from `vibeApi.analyzePhotos` to
-`vibeApi.analyzePhotosWithBackend`
-- Map the backend response shape to the mobile `VibeCheck` type in
-`services/api.ts`
-- Replace mocked `submitFeedback` with a real `POST /api/feedback` endpoint
-that persists to a SQLite file in `outputs/feedback.sqlite` for the
-human study
+**What landed:**
+
+- `src/vibecheck/server/app.py` -- FastAPI app with:
+  - `GET  /api/health` -- sanity check + reports whether the encoder was
+  pre-warmed and which optional pipeline features (selection, learned
+  classifier, playlist) are active
+  - `POST /api/analyze` -- multipart upload (up to 6 photos + `mode`); reads
+  the bytes, calls `analyze_images(with_recommendations=True,
+  use_selection=True, use_learned_classifier=True, with_playlist=True)`,
+  reshapes the result into the mobile `VibeCheck` contract, returns 200 JSON.
+  Pipeline errors are surfaced as 502 with the underlying message.
+  - `POST /api/feedback` -- JSON body (vibe-check id + ratings + optional
+  notes); persisted to SQLite for the Step 9 human study.
+  - CORS open by default (override with `VIBECHECK_CORS_ORIGINS=` env var).
+  - FastAPI lifespan handler pre-warms the fashion-bert encoder + Reddit /
+  product indexes on startup so the first request isn't 5-10s slower than
+  the rest. Pre-warm failures are logged but don't block boot.
+- `src/vibecheck/server/mappers.py` -- the single place where pipeline
+dataclasses are turned into the mobile JSON contract:
+  - `extracted_tags` -> `Tag[]`, dropping anything outside the six canonical
+  vocab categories so the mobile `TagCategory` union stays honest.
+  - `top_vibes` -> `VibeResult[]`, with a curated default description per
+  vibe so the UI always has something to show. Scores are squashed into
+  [0, 1] with `x / (1+x)` so the "% match" badge can never report 250 %.
+  - `item_recommendations` (snake_case Depop dicts) -> mobile `Item[]`
+  (camelCase, with a coerced `category` in {furniture, decor, clothing,
+  accessory} so the UI's strict union stays valid).
+  - `playlist_recommendations` (ranked Spotify tracks) wrapped into a
+  single synthetic `Playlist` object, with `coverImage` pulled from the
+  first track's album art and a name like `"Cottagecore Playlist"`.
+- `src/vibecheck/server/storage.py` -- a tiny SQLite store at
+`outputs/feedback.sqlite` (gitignored). Schema is created on first use,
+one row per submission, with `extra_json` for free-form notes.
+- `scripts/serve.py` -- thin `uvicorn` runner. Prints the LAN IP it bound to
+on startup with a copy-pasteable `EXPO_PUBLIC_API_URL=...` line so partners
+testing from a real phone don't have to hunt for it.
+- `Makefile` gets a `make serve` target; `.env.example` documents required
+secrets (`GROQ_API_KEY`, `SPOTIFY_CLIENT_*`); `mobile/.env.example`
+documents `EXPO_PUBLIC_API_URL` and the `EXPO_PUBLIC_USE_MOCK` flag.
+
+**Mobile side:**
+
+- `mobile/services/api.ts` -- `analyzePhotosWithBackend` now talks to the
+real backend, with two important fixes vs the original stub:
+  - **No `Content-Type` header.** RN's fetch generates the multipart boundary
+  itself; setting `Content-Type: multipart/form-data` strips the boundary
+  and the server fails with HTTP 422 "Expected UploadFile, received str."
+  This is a famously easy gotcha to miss.
+  - **No silent mock fallback.** The original code swallowed network errors
+  and quietly served fake data. Now real errors surface in the UI alert
+  so the demo doesn't lie. The mock path is still available behind an
+  `EXPO_PUBLIC_USE_MOCK=1` env flag for offline UI work.
+- `submitFeedback` now POSTs to `/api/feedback` for real.
+- `mobile/app/(tabs)/index.tsx` swapped `vibeApi.analyzePhotos` ->
+`vibeApi.analyzePhotosWithBackend` and surfaces the real error message.
+
+**Tests (`tests/test_server.py`, 9 tests, all green):**
+
+- `/api/health` shape + content
+- `/api/analyze` happy path returns mobile-shaped JSON (tags, vibes,
+itemRecommendations, playlistRecommendation, createdAt, ...)
+- Pipeline kwargs are forwarded correctly (selection on, learned classifier
+on, playlist on)
+- Edge cases: zero photos, >6 photos, pipeline raises -> 502 with the
+underlying error in `detail`
+- `/api/feedback` round-trips through SQLite, including the `extra.notes`
+JSON column
+- Out-of-range rating -> 422 from pydantic validation
+- Pipeline + Spotify are stubbed out via monkeypatch so CI never hits a
+real network.
+
+**Live smoke test (real Groq + real Spotify):**
+
+```
+GET  /api/health   -> 200, prewarmed: true, all features on
+POST /api/analyze  -> 200 in 1.6s with model="meta-llama/llama-4-scout-17b"
+                     (validates the multipart contract + pipeline call +
+                      mapper output end-to-end)
+POST /api/feedback -> 200 {ok: true, id: 1}, row visible in feedback.sqlite
+```
+
+**Honest finding for the writeup:** the Llama-4 Scout vision model is
+inconsistent at producing strict JSON output for arbitrary photos -- about
+30-40 % of random images cause the parse to fail and the pipeline falls back
+to its "empty tags" branch. The server contract is robust to this (returns
+HTTP 200 with empty results + a warning in `debug.warnings`), so the mobile
+UI gracefully handles it, but for the human study we should curate the
+photo set to avoid the corner case. Upgrade path: switch to a stronger vision
+model with native structured-output support, or relax the prompt's JSON
+strictness and parse free-form text instead.
 
 Deliverable: real photo on a real phone -> real recommendations from the real
-model.
+model. ✓
 
 ### Step 9 — Human study
 
@@ -444,8 +522,9 @@ done, the model + CSVs should probably move to `data/raw/` and
 - Reconcile model version with the status report: report says
 `fashion-bert-output-v4` (msmarco-distilbert, 768 dims), repo has v2
 (MiniLM, 384 dims). Either commit v4 or correct the report.
-- `requirements.txt`: add `sentence-transformers`, `faiss-cpu`, `fastapi`,
-`uvicorn`, `python-multipart`, `convokit` as they get used
+- `requirements.txt`: add `convokit` if Step 1's full Reddit pipeline is ever
+re-run (the rest -- `sentence-transformers`, `faiss-cpu`, `fastapi`,
+`uvicorn`, `python-multipart` -- are already in)
 
 ---
 

@@ -100,7 +100,10 @@ export default function HomeScreen() {
     setIsAnalyzing(true);
 
     try {
-      const response = await vibeApi.analyzePhotos(selectedPhotos, mode);
+      const response = await vibeApi.analyzePhotosWithBackend(
+        selectedPhotos,
+        mode
+      );
 
       if (response.success && response.data) {
         setCurrentVibeCheck(response.data);
@@ -108,10 +111,17 @@ export default function HomeScreen() {
         clearPhotos();
         router.push(`/vibe/${response.data.id}`);
       } else {
-        Alert.alert("Error", response.error || "Failed to analyze photos.");
+        Alert.alert(
+          "Couldn't analyze photos",
+          response.error ||
+            "The backend didn't return a result. Make sure the server is running."
+        );
       }
     } catch (error) {
-      Alert.alert("Error", "Something went wrong. Please try again.");
+      Alert.alert(
+        "Error",
+        error instanceof Error ? error.message : "Something went wrong."
+      );
     } finally {
       setIsAnalyzing(false);
     }

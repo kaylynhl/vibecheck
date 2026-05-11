@@ -22,8 +22,8 @@ from vibecheck.rec.playlists import (
     recommend_tracks,
 )
 from vibecheck.rec.spotify_client import SpotifyClient
-from tests.helpers import make_payload
-from tests.test_recommend import StubEncoder
+from helpers import make_payload
+from test_recommend import StubEncoder
 
 
 # ---- fixtures ----------------------------------------------------------------

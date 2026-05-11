@@ -189,7 +189,7 @@ def test_select_validates_aligned_lengths() -> None:
 
 @pytest.fixture
 def stub_encoder():
-    from tests.test_recommend import StubEncoder
+    from test_recommend import StubEncoder
 
     return StubEncoder()
 
@@ -216,7 +216,7 @@ def product_index(stub_encoder):
 def test_recommend_items_with_selection_attaches_breakdown(
     stub_encoder, reddit_index, product_index
 ) -> None:
-    from tests.helpers import make_payload
+    from helpers import make_payload
 
     payload = make_payload(
         scene_type="outfit",
@@ -248,7 +248,7 @@ def test_recommend_items_with_selection_attaches_breakdown(
 def test_recommend_items_without_selection_has_no_breakdown(
     stub_encoder, reddit_index, product_index
 ) -> None:
-    from tests.helpers import make_payload
+    from helpers import make_payload
 
     payload = make_payload(
         scene_type="outfit",

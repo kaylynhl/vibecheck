@@ -5,7 +5,7 @@ VENV := .venv
 PIP := $(VENV)/bin/pip
 PYBIN := $(VENV)/bin/python
 
-.PHONY: help venv install setup fmt lint test demo clean
+.PHONY: help venv install setup fmt lint test demo serve clean
 
 help:
 	@echo "Targets:"
@@ -39,6 +39,9 @@ test: venv
 
 demo: venv
 	@$(PYBIN) scripts/demo.py
+
+serve: venv
+	@$(PYBIN) scripts/serve.py
 
 clean:
 	@rm -rf __pycache__ .pytest_cache .ruff_cache .mypy_cache build dist *.egg-info

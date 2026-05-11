@@ -35,6 +35,12 @@ requests
 streamlit
 # gradio?
 
+# ---------- HTTP backend (Step 8) ----------
+fastapi
+uvicorn[standard]
+python-multipart
+httpx
+
 # ---------- Audio / playlists ----------
 librosa
 soundfile
