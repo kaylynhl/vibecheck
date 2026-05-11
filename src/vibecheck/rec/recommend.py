@@ -8,18 +8,27 @@ from typing import Any
 from vibecheck.rec.encoder import FashionBertEncoder
 from vibecheck.rec.expansion import expand_query
 from vibecheck.rec.products import ProductIndex, load_product_index
+from vibecheck.rec.select import SelectionConfig, select_items
 from vibecheck.rec.text_index import RedditTextIndex, load_reddit_index
-from vibecheck.schemas import VisionAnalysisPayload
+from vibecheck.schemas import ExtractedTag, VisionAnalysisPayload
 
 
 @dataclass
 class RecommendationConfig:
-    """Knobs for the (currently nearest-neighbor) recommendation step."""
+    """Knobs for the recommendation step.
+
+    When ``selection`` is None the recommender returns the raw FAISS top-K.
+    When set, it pulls ``candidate_pool_size`` items from FAISS and runs the
+    greedy selector to pick ``top_k`` items optimizing vibe + complementarity
+    - redundancy.
+    """
 
     top_k: int = 10
     k_corpus: int = 10
     alpha: float = 1.0
     beta: float = 0.75
+    selection: SelectionConfig | None = None
+    candidate_pool_size: int = 50
 
 
 def build_query_string(payload: VisionAnalysisPayload) -> str:
@@ -71,6 +80,7 @@ def recommend_items(
     payload: VisionAnalysisPayload,
     *,
     config: RecommendationConfig | None = None,
+    image_tags: list[ExtractedTag] | None = None,
     encoder: FashionBertEncoder | None = None,
     reddit_index: RedditTextIndex | None = None,
     product_index: ProductIndex | None = None,
@@ -78,8 +88,15 @@ def recommend_items(
     """Run vibe-to-item recommendation: build query, expand, search products.
 
     Returns a list of JSON-safe product dicts (``Product.to_dict(score=...)``).
-    Tests and offline callers can inject their own ``encoder``, ``reddit_index``,
-    and ``product_index`` to avoid touching disk or loading the model.
+    When ``config.selection`` is set, the result dicts include a ``selection``
+    sub-dict with the per-term score breakdown (vibe / complementarity /
+    redundancy).
+
+    ``image_tags`` is the list of structured tags already pulled from the
+    user's photo(s); the selector uses their categories to compute the
+    complementarity bonus. Tests and offline callers can inject their own
+    ``encoder``, ``reddit_index``, and ``product_index`` to avoid touching
+    disk or loading the model.
     """
     config = config or RecommendationConfig()
     encoder = encoder or _shared_encoder()
@@ -98,8 +115,40 @@ def recommend_items(
         alpha=config.alpha,
         beta=config.beta,
     )
-    results = product_index.search(expanded, k=config.top_k)
-    return [product.to_dict(score=score) for score, product in results]
+
+    if config.selection is None:
+        results = product_index.search(expanded, k=config.top_k)
+        return [product.to_dict(score=score) for score, _, product in results]
+
+    pool_size = max(config.top_k, config.candidate_pool_size)
+    pool = product_index.search(expanded, k=pool_size)
+    if not pool:
+        return []
+
+    candidate_scores = [score for score, _, _ in pool]
+    candidate_products = [product for _, _, product in pool]
+    candidate_embeddings = product_index.embeddings[[idx for _, idx, _ in pool]]
+    image_categories = {tag.category for tag in (image_tags or [])}
+
+    selected = select_items(
+        candidate_scores,
+        candidate_embeddings,
+        candidate_products,
+        image_categories,
+        top_k=config.top_k,
+        config=config.selection,
+    )
+    return [
+        {
+            **result.product.to_dict(score=result.final_score),
+            "selection": {
+                "vibe_score": result.vibe_score,
+                "complementarity": result.complementarity,
+                "redundancy": result.redundancy,
+            },
+        }
+        for result in selected
+    ]
 
 
 def reset_shared_state() -> None:

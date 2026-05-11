@@ -8,6 +8,7 @@ from vibecheck.rec.recommend import (
     build_query_string,
     recommend_items,
 )
+from vibecheck.rec.select import SelectionConfig, SelectionResult, select_items
 from vibecheck.rec.text_index import RedditTextIndex, load_reddit_index
 
 __all__ = [
@@ -16,9 +17,12 @@ __all__ = [
     "ProductIndex",
     "RecommendationConfig",
     "RedditTextIndex",
+    "SelectionConfig",
+    "SelectionResult",
     "build_query_string",
     "expand_query",
     "load_product_index",
     "load_reddit_index",
     "recommend_items",
+    "select_items",
 ]

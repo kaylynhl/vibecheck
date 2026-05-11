@@ -39,7 +39,18 @@ def main() -> int:
         default=10,
         help="Number of product recommendations to return (default: 10).",
     )
+    parser.add_argument(
+        "--select",
+        action="store_true",
+        help=(
+            "Use the greedy diversity- and complementarity-aware selector "
+            "instead of the raw FAISS top-k. Implies --recommend."
+        ),
+    )
     args = parser.parse_args()
+
+    if args.select and not args.recommend:
+        args.recommend = True
 
     try:
         result = analyze_images_to_dict(
@@ -47,6 +58,7 @@ def main() -> int:
             mode=args.mode,
             with_recommendations=args.recommend,
             recommend_top_k=args.top_k,
+            use_selection=args.select,
         )
     except ConfigurationError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)

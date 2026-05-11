@@ -212,9 +212,10 @@ def test_pipeline_attaches_recommendations_when_flag_set(
     """analyze_images(with_recommendations=True) calls into the rec module."""
     captured: dict[str, object] = {}
 
-    def fake_recommend_items(payload, *, config=None):
+    def fake_recommend_items(payload, *, config=None, image_tags=None):
         captured["payload"] = payload
         captured["config"] = config
+        captured["image_tags"] = image_tags
         return [{"id": "stub", "name": "stub", "score": 0.9}]
 
     import vibecheck.rec as rec_module

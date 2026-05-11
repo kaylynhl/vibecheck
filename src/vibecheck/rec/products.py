@@ -87,17 +87,22 @@ class ProductIndex:
             self._index.add(self.embeddings)
         return self._index
 
-    def search(self, query_vec: np.ndarray, k: int = 10) -> list[tuple[float, Product]]:
-        """Return (score, product) pairs for the k most similar products."""
+    def search(self, query_vec: np.ndarray, k: int = 10) -> list[tuple[float, int, Product]]:
+        """Return (score, idx, product) triples for the k most similar products.
+
+        ``idx`` is the product's row in ``self.products`` and ``self.embeddings``,
+        which downstream selection logic uses to look up embeddings without
+        re-encoding.
+        """
         if query_vec.ndim == 1:
             query_vec = query_vec[None, :]
         if k <= 0 or len(self.products) == 0:
             return []
         scores, idxs = self.index.search(query_vec.astype(np.float32), k)
-        results: list[tuple[float, Product]] = []
+        results: list[tuple[float, int, Product]] = []
         for score, idx in zip(scores[0], idxs[0]):
             if 0 <= idx < len(self.products):
-                results.append((float(score), self.products[idx]))
+                results.append((float(score), int(idx), self.products[idx]))
         return results
 
 

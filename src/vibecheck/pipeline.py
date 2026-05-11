@@ -26,6 +26,7 @@ def analyze_images(
     client: GroqVisionClient | None = None,
     with_recommendations: bool = False,
     recommend_top_k: int = 10,
+    use_selection: bool = False,
 ) -> VibeAnalysisResult:
     """Run the full image-to-vibe pipeline and return a structured analysis result.
 
@@ -130,10 +131,16 @@ def analyze_images(
         try:
             # Lazy import: the rec module pulls in sentence-transformers + faiss.
             from vibecheck.rec import RecommendationConfig, recommend_items
+            from vibecheck.rec.select import SelectionConfig
 
+            rec_config = RecommendationConfig(
+                top_k=recommend_top_k,
+                selection=SelectionConfig() if use_selection else None,
+            )
             item_recommendations = recommend_items(
                 vision_payload,
-                config=RecommendationConfig(top_k=recommend_top_k),
+                config=rec_config,
+                image_tags=extracted_tags,
             )
         except Exception as exc:
             warnings.append(f"Recommendation step failed: {exc}")
@@ -167,6 +174,7 @@ def analyze_images_to_dict(
     client: GroqVisionClient | None = None,
     with_recommendations: bool = False,
     recommend_top_k: int = 10,
+    use_selection: bool = False,
 ) -> dict[str, object]:
     """Run the pipeline and return a JSON-ready dictionary."""
     return analyze_images(
@@ -175,6 +183,7 @@ def analyze_images_to_dict(
         client=client,
         with_recommendations=with_recommendations,
         recommend_top_k=recommend_top_k,
+        use_selection=use_selection,
     ).to_dict()
 
 

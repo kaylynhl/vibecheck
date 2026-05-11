@@ -34,8 +34,8 @@ the result so we can run a small human study at the end.
 | Product catalog (~1,249 Depop items)                     | done                               | `reddit/example-fashion-dataset.json`                                      |
 | Precomputed product embeddings                           | done                               | `reddit/FINAL-EMBEDDINGS.csv`                                              |
 | FAISS query expansion + product retrieval                | done (modular)                     | `src/vibecheck/rec/{text_index,products,expansion}.py`                     |
-| Image pipeline -> text retrieval glue                    | done (NN retrieval only)           | `src/vibecheck/rec/`, `pipeline.analyze_images(with_recommendations=True)` |
-| Selection objective (diversity + complementarity)        | **not built**                      | --                                                                         |
+| Image pipeline -> text retrieval glue                    | done                               | `src/vibecheck/rec/`, `pipeline.analyze_images(with_recommendations=True)` |
+| Selection objective (diversity + complementarity)        | done (greedy + ablations)          | `src/vibecheck/rec/select.py`, `scripts/ablate_selection.py`               |
 | Stronger learned tag->vibe model                         | **not built**                      | --                                                                         |
 | Music playlist recommendation                            | **not built**                      | --                                                                         |
 | Multi-photo aggregation experiment                       | **not built**                      | --                                                                         |
@@ -199,27 +199,42 @@ Deliverable: one CLI command turns an image into a list of matching Depop
 products. This is the moment the project stopped being "two demos" and started
 being one system.
 
-### Step 3 — Implement the selection objective (the AI contribution)
+### Step 3 — Implement the selection objective (the AI contribution) *(DONE)*
 
 Goal: replace plain nearest-neighbor with greedy selection that balances vibe
 match, complementarity, and diversity. This is the "search/optimization" piece
 the proposal explicitly graded.
 
-Solo-able. Depends on Step 2.
+Solo-able. Depended only on Step 2.
 
 - `src/vibecheck/rec/select.py`:
-  - score: `w1 * vibe_similarity + w2 * complementarity - w3 * redundancy`
-  - greedy loop over the top-50 candidates from FAISS, picking N total
-- Define `complementarity(item, image_tags)` -- how many tag categories the
-user's photo set is *missing* that this item would add
-- Define `redundancy(item, selected)` -- max cosine similarity to any item
-already in the selected set
-- Add ablation flags: `--no-diversity`, `--no-complementarity`. These let
-us produce the comparison table for the report.
-- (Stretch) implement beam search with width 3 for comparison
+  - score: `w_vibe * vibe_similarity + w_comp * complementarity_fraction
+  - w_red * max_cosine_to_already_selected`
+  - greedy loop over a configurable candidate pool (default 50) picking
+  `top_k` total
+- `complementarity` = `|product_tag_categories ∩ missing_image_categories| /
+max(1, |missing_image_categories|)`. Product categories come from running
+the existing `tags/extract.py` over the product's text, so image tags and
+product tags share one vocabulary.
+- `redundancy` = max cosine similarity between the candidate and any
+already-selected item, computed off the precomputed FAISS embeddings (no
+re-encoding).
+- Ablation knobs: `SelectionConfig.use_complementarity` and `use_diversity`.
+Wired into `RecommendationConfig.selection`; pipeline + demo CLI gain a
+matching `--select` flag.
+- `scripts/ablate_selection.py`: prints a side-by-side table of plain NN /
++complementarity / +diversity / both for any text query, ready to drop
+into the report.
+- 9 new tests in `tests/test_select.py`. All 59 in the suite pass.
 
-Deliverable: a configurable selection function with three knobs, plus an
-ablation script that prints a small results table.
+Deliverable: configurable selector with three knobs, two ablation flags,
+score-breakdown surfaced in the API response, and a one-command comparison
+script. Smoke-tested on real Depop catalog: complementarity pulls in linen
+dresses, diversity demotes near-duplicate floral shirts. **Confirmed
+working end-to-end.**
+
+Stretch (not done): beam search with width 3. Skip unless we have time
+before the writeup.
 
 ### Step 4 — Train a learned tags->vibe classifier
 
