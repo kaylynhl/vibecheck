@@ -9,6 +9,16 @@ from typing import Any, Sequence
 
 import requests
 
+# Best-effort .env loading so GROQ_API_KEY can live in a gitignored file at the
+# repo root instead of the user's shell config. Safe no-op if dotenv is not
+# installed or no .env file is present.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
 from vibecheck.errors import ConfigurationError, VisionAPIError, VisionOutputFormatError
 from vibecheck.features.image_inputs import encode_image_as_data_url
 from vibecheck.schemas import ImageSource, VisionAnalysisPayload
