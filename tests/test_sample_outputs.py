@@ -13,6 +13,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "confidence_notes",
     "debug",
     "item_recommendations",
+    "playlist_recommendations",
 }
 
 

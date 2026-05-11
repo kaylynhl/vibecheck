@@ -1,0 +1,89 @@
+[
+  {"title": "Cottagecore mornings: soft folk and pressed flowers", "aesthetic": "cottagecore"},
+  {"title": "Prairie dress daydreams - acoustic indie folk", "aesthetic": "cottagecore"},
+  {"title": "Sunlit cottage, linen sheets, slow folk songs", "aesthetic": "cottagecore"},
+  {"title": "Wildflower walks: dreamy folk and warm strings", "aesthetic": "cottagecore"},
+
+  {"title": "Dark academia study session - cello and rain", "aesthetic": "dark academia"},
+  {"title": "Library at midnight, tweed coats, classical piano", "aesthetic": "dark academia"},
+  {"title": "Dark academia: brooding strings and rainy windows", "aesthetic": "dark academia"},
+  {"title": "Gothic chapel choir, candles, and old books", "aesthetic": "dark academia"},
+
+  {"title": "Minimalist mornings: ambient piano and coffee", "aesthetic": "minimalist"},
+  {"title": "Clean lines, white walls, soft ambient electronic", "aesthetic": "minimalist"},
+  {"title": "Minimalist focus: spacious neoclassical piano", "aesthetic": "minimalist"},
+  {"title": "Quiet modernism: ambient and slow techno", "aesthetic": "minimalist"},
+
+  {"title": "Y2K bops: bubblegum pop and chrome shine", "aesthetic": "y2k"},
+  {"title": "2000s mall energy - electropop and glitter", "aesthetic": "y2k"},
+  {"title": "Y2K nostalgia: low-rise jeans and pop hits", "aesthetic": "y2k"},
+  {"title": "Early 2000s teen drama soundtrack vibes", "aesthetic": "y2k"},
+
+  {"title": "Coastal grandmother: jazz standards and salt air", "aesthetic": "coastal grandmother"},
+  {"title": "Linen, white wine, breezy bossa nova", "aesthetic": "coastal grandmother"},
+  {"title": "Cape Cod summer playlist: classic crooners", "aesthetic": "coastal grandmother"},
+
+  {"title": "Indie sleaze: blog rock and basement parties", "aesthetic": "indie sleaze"},
+  {"title": "Smudged eyeliner, blurry photos, 2008 indie rock", "aesthetic": "indie sleaze"},
+  {"title": "Indie sleaze revival: scrappy electroclash", "aesthetic": "indie sleaze"},
+
+  {"title": "Clean girl morning: soft pop and pilates", "aesthetic": "clean girl"},
+  {"title": "Fresh face, slicked bun, gentle pop and R&B", "aesthetic": "clean girl"},
+  {"title": "Clean girl playlist - light pop and ambient", "aesthetic": "clean girl"},
+
+  {"title": "Cyberpunk neon nights: synthwave and industrial", "aesthetic": "cyberpunk"},
+  {"title": "Rainy megacity, neon signs, dark synthwave", "aesthetic": "cyberpunk"},
+  {"title": "Cyberpunk 2077 mood: heavy electronic and bass", "aesthetic": "cyberpunk"},
+  {"title": "Techwear runs: aggressive electro and breakbeat", "aesthetic": "cyberpunk"},
+
+  {"title": "Bohemian roadtrip: folk rock and tambourines", "aesthetic": "bohemian"},
+  {"title": "Boho festival vibes - psychedelic folk", "aesthetic": "bohemian"},
+  {"title": "Free spirit playlist: world folk and Laurel Canyon", "aesthetic": "bohemian"},
+  {"title": "Bohemian afternoon: warm folk and acoustic guitar", "aesthetic": "bohemian"},
+
+  {"title": "Old money summer: jazz standards and yacht rock", "aesthetic": "old money"},
+  {"title": "Quiet luxury playlist - timeless jazz piano", "aesthetic": "old money"},
+  {"title": "Hamptons gardens: classical and bossa nova", "aesthetic": "old money"},
+
+  {"title": "Grunge basement: 90s alt rock and feedback", "aesthetic": "grunge"},
+  {"title": "Flannel weather playlist - distorted guitars", "aesthetic": "grunge"},
+  {"title": "Seattle 1994: grunge anthems and lo-fi rock", "aesthetic": "grunge"},
+  {"title": "Grungy garage rock and dive bar shows", "aesthetic": "grunge"},
+
+  {"title": "Soft girl playlist: pastel bedroom pop", "aesthetic": "soft girl"},
+  {"title": "Pink skies, plushies, gentle indie pop", "aesthetic": "soft girl"},
+  {"title": "Soft girl dreams: bedroom pop and floaty vocals", "aesthetic": "soft girl"},
+
+  {"title": "Goblincore forest noises: nature folk and earthy strings", "aesthetic": "goblincore"},
+  {"title": "Mossy creek wandering, woodland folk", "aesthetic": "goblincore"},
+  {"title": "Goblincore: earthy, weird, mushroom-hunting tunes", "aesthetic": "goblincore"},
+
+  {"title": "Light academia mornings: spring piano and warm classical", "aesthetic": "light academia"},
+  {"title": "Cream cardigans, sunlit libraries, baroque piano", "aesthetic": "light academia"},
+  {"title": "Light academia: airy classical and gentle folk", "aesthetic": "light academia"},
+
+  {"title": "Streetwear playlist: trap, drill, and hard hip-hop", "aesthetic": "streetwear"},
+  {"title": "Hypebeast warmup - aggressive trap beats", "aesthetic": "streetwear"},
+  {"title": "Street style block party: hip-hop and R&B", "aesthetic": "streetwear"},
+  {"title": "Skate park afternoons: punk and trap rap", "aesthetic": "streetwear"},
+
+  {"title": "Mid-century modern cocktail hour - jazz combo", "aesthetic": "mid-century modern"},
+  {"title": "Eames lounge, Manhattan in hand, smooth jazz", "aesthetic": "mid-century modern"},
+  {"title": "Mid-century lounge: bossa nova and warm jazz", "aesthetic": "mid-century modern"},
+
+  {"title": "Scandinavian winter: ambient piano and slow synth", "aesthetic": "scandinavian"},
+  {"title": "Hygge evenings: warm folk and Nordic strings", "aesthetic": "scandinavian"},
+  {"title": "Scandi cabin playlist - quiet acoustic folk", "aesthetic": "scandinavian"},
+
+  {"title": "Industrial loft mood: dark electronic and EBM", "aesthetic": "industrial"},
+  {"title": "Concrete warehouse parties: techno and noise rock", "aesthetic": "industrial"},
+  {"title": "Industrial machinery beats and clanging metal", "aesthetic": "industrial"},
+
+  {"title": "Maximalist explosion: brass bands and disco", "aesthetic": "maximalist"},
+  {"title": "More-is-more playlist - colorful funk and soul", "aesthetic": "maximalist"},
+  {"title": "Maximalist party: big band, disco, and bombast", "aesthetic": "maximalist"},
+
+  {"title": "Japandi tea ceremony: koto and ambient drone", "aesthetic": "japandi"},
+  {"title": "Quiet Japanese garden, soft koto and shakuhachi", "aesthetic": "japandi"},
+  {"title": "Japandi calm: ambient piano and Japanese folk", "aesthetic": "japandi"}
+]

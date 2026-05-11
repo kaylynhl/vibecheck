@@ -47,6 +47,26 @@ def main() -> int:
             "instead of the raw FAISS top-k. Implies --recommend."
         ),
     )
+    parser.add_argument(
+        "--learned-classifier",
+        action="store_true",
+        help=(
+            "Use the trained tags->vibe classifier (requires "
+            "data/processed/vibe_classifier.joblib; falls back to "
+            "hand-weighted scoring if missing)."
+        ),
+    )
+    parser.add_argument(
+        "--playlist",
+        action="store_true",
+        help="Also return matching playlist titles for the inferred vibe.",
+    )
+    parser.add_argument(
+        "--playlist-top-k",
+        type=int,
+        default=5,
+        help="Number of playlist matches to return (default: 5).",
+    )
     args = parser.parse_args()
 
     if args.select and not args.recommend:
@@ -59,6 +79,9 @@ def main() -> int:
             with_recommendations=args.recommend,
             recommend_top_k=args.top_k,
             use_selection=args.select,
+            use_learned_classifier=args.learned_classifier,
+            with_playlist=args.playlist,
+            playlist_top_k=args.playlist_top_k,
         )
     except ConfigurationError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)

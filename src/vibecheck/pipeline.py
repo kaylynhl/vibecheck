@@ -27,6 +27,9 @@ def analyze_images(
     with_recommendations: bool = False,
     recommend_top_k: int = 10,
     use_selection: bool = False,
+    use_learned_classifier: bool = False,
+    with_playlist: bool = False,
+    playlist_top_k: int = 5,
 ) -> VibeAnalysisResult:
     """Run the full image-to-vibe pipeline and return a structured analysis result.
 
@@ -98,7 +101,21 @@ def analyze_images(
     timings_ms["extract_tags"] = _elapsed_ms(start)
 
     start = perf_counter()
-    vibe_scores, confidence_notes = score_vibes(extracted_tags, mode=mode)
+    if use_learned_classifier:
+        try:
+            from vibecheck.vibe.learned import load_bundle, score_vibes_learned
+
+            bundle = load_bundle()
+            vibe_scores, confidence_notes = score_vibes_learned(extracted_tags, bundle)
+            confidence_notes = list(confidence_notes)
+            confidence_notes.append(
+                f"Learned vibe classifier active (trained on {bundle.metadata.get('n_train', '?')} examples)."
+            )
+        except Exception as exc:
+            warnings.append(f"Learned classifier unavailable, falling back to hand-weighted: {exc}")
+            vibe_scores, confidence_notes = score_vibes(extracted_tags, mode=mode)
+    else:
+        vibe_scores, confidence_notes = score_vibes(extracted_tags, mode=mode)
     timings_ms["score_vibes"] = _elapsed_ms(start)
 
     if mode and scene_type and scene_type not in {mode, "mixed", "unclear"}:
@@ -126,6 +143,7 @@ def analyze_images(
         top_vibes = vibe_scores[:3]
 
     item_recommendations: list[dict[str, object]] = []
+    playlist_recommendations: list[dict[str, object]] = []
     if with_recommendations:
         start = perf_counter()
         try:
@@ -146,6 +164,19 @@ def analyze_images(
             warnings.append(f"Recommendation step failed: {exc}")
         timings_ms["recommend_items"] = _elapsed_ms(start)
 
+    if with_playlist:
+        start = perf_counter()
+        try:
+            from vibecheck.rec.playlists import recommend_playlist
+
+            playlist_recommendations = recommend_playlist(
+                vision_payload,
+                top_k=playlist_top_k,
+            )
+        except Exception as exc:
+            warnings.append(f"Playlist recommendation failed: {exc}")
+        timings_ms["recommend_playlist"] = _elapsed_ms(start)
+
     debug = DebugInfo(
         input_count=len(normalized_inputs),
         input_kinds=[image.mime_type for image in normalized_inputs],
@@ -164,6 +195,7 @@ def analyze_images(
         confidence_notes=confidence_notes,
         debug=debug,
         item_recommendations=item_recommendations,
+        playlist_recommendations=playlist_recommendations,
     )
 
 
@@ -175,6 +207,9 @@ def analyze_images_to_dict(
     with_recommendations: bool = False,
     recommend_top_k: int = 10,
     use_selection: bool = False,
+    use_learned_classifier: bool = False,
+    with_playlist: bool = False,
+    playlist_top_k: int = 5,
 ) -> dict[str, object]:
     """Run the pipeline and return a JSON-ready dictionary."""
     return analyze_images(
@@ -184,6 +219,9 @@ def analyze_images_to_dict(
         with_recommendations=with_recommendations,
         recommend_top_k=recommend_top_k,
         use_selection=use_selection,
+        use_learned_classifier=use_learned_classifier,
+        with_playlist=with_playlist,
+        playlist_top_k=playlist_top_k,
     ).to_dict()
 
 

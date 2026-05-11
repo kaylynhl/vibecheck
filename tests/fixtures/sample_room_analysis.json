@@ -120,5 +120,6 @@
     "validation_passed": true,
     "parse_error": null
   },
-  "item_recommendations": []
+  "item_recommendations": [],
+  "playlist_recommendations": []
 }
