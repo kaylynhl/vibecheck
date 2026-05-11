@@ -1,29 +1,68 @@
-"""Tests for the playlist recommendation path.
+"""Tests for the live-Spotify track recommender.
 
-We avoid loading the real fashion-bert model or hitting disk by reusing the
-``StubEncoder`` from ``test_recommend`` and building an in-memory
-``PlaylistIndex``.
+We never hit the real Spotify API in CI -- the ``SpotifyClient`` is replaced
+with a stub that returns canned track dicts. This isolates the unit under
+test (query building, deduping, fashion-bert re-ranking, graceful failure)
+from any network or rate-limit flakiness.
 """
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
 
-from vibecheck.rec.encoder import l2_normalize
+from vibecheck.errors import ConfigurationError
 from vibecheck.rec.playlists import (
-    Playlist,
-    PlaylistIndex,
-    load_playlist_index,
-    load_playlists_from_csv,
-    load_playlists_from_seed,
-    recommend_playlist,
+    DEFAULT_RESULTS_PER_QUERY,
+    Track,
+    build_search_queries,
+    normalize_track,
+    recommend_tracks,
 )
+from vibecheck.rec.spotify_client import SpotifyClient
 from tests.helpers import make_payload
 from tests.test_recommend import StubEncoder
+
+
+# ---- fixtures ----------------------------------------------------------------
+
+
+class StubSpotify(SpotifyClient):
+    """In-memory Spotify client that returns pre-canned results per query."""
+
+    def __init__(self, results_by_query: dict[str, list[dict[str, Any]]]) -> None:
+        super().__init__(client_id="stub", client_secret="stub")
+        self.results_by_query = results_by_query
+        self.calls: list[tuple[str, int]] = []
+
+    def search_tracks(  # type: ignore[override]
+        self,
+        query: str,
+        *,
+        limit: int = 50,
+        market: str | None = None,
+        max_retries: int = 3,
+    ) -> list[dict[str, Any]]:
+        self.calls.append((query, limit))
+        return list(self.results_by_query.get(query, []))
+
+
+def make_raw_track(track_id: str, name: str, artist: str) -> dict[str, Any]:
+    """Mimic the shape of a Spotify Web API track object."""
+    return {
+        "id": track_id,
+        "name": name,
+        "artists": [{"name": artist}],
+        "album": {
+            "name": f"{name} (Album)",
+            "images": [{"url": f"https://img.example/{track_id}.jpg"}],
+        },
+        "preview_url": f"https://preview.example/{track_id}.mp3",
+        "external_urls": {"spotify": f"https://open.spotify.com/track/{track_id}"},
+        "duration_ms": 200000,
+    }
 
 
 @pytest.fixture
@@ -31,158 +70,236 @@ def stub_encoder() -> StubEncoder:
     return StubEncoder()
 
 
-@pytest.fixture
-def playlist_index(stub_encoder: StubEncoder) -> PlaylistIndex:
-    playlists = [
-        Playlist(title="Cottagecore mornings: soft folk and pressed flowers", aesthetic="cottagecore"),
-        Playlist(title="Y2K bops: bubblegum pop and chrome shine", aesthetic="y2k"),
-        Playlist(title="Cyberpunk neon nights: synthwave and industrial", aesthetic="cyberpunk"),
-    ]
-    embs = stub_encoder.encode([p.encode_text() for p in playlists])
-    return PlaylistIndex(playlists=playlists, embeddings=embs)
+# ---- pure-function tests -----------------------------------------------------
 
 
-def test_playlist_to_dict_strips_none_fields() -> None:
-    pl = Playlist(title="Test")
-    out = pl.to_dict(score=0.5)
-    assert out == {"title": "Test", "score": 0.5}
-
-
-def test_playlist_to_dict_keeps_populated_fields() -> None:
-    pl = Playlist(title="Test", aesthetic="y2k", curator="me", url="https://x")
-    out = pl.to_dict()
-    assert out == {
-        "title": "Test",
-        "aesthetic": "y2k",
-        "curator": "me",
-        "url": "https://x",
-    }
-
-
-def test_index_search_returns_requested_count(
-    stub_encoder: StubEncoder, playlist_index: PlaylistIndex
-) -> None:
-    query = stub_encoder.encode(["cottagecore floral soft folk"])
-
-    results = playlist_index.search(query, k=2)
-
-    assert len(results) == 2
-    assert all(isinstance(score, float) for score, _ in results)
-    assert all(isinstance(p, Playlist) for _, p in results)
-    scores = [s for s, _ in results]
-    assert scores == sorted(scores, reverse=True)
-
-
-def test_recommend_playlist_uses_explicit_query(
-    stub_encoder: StubEncoder, playlist_index: PlaylistIndex
-) -> None:
-    results = recommend_playlist(
-        payload=None,
-        top_k=3,
-        encoder=stub_encoder,
-        playlist_index=playlist_index,
-        query="cottagecore soft folk warm folk",
+def test_build_search_queries_dedupes_and_caps() -> None:
+    payload = make_payload(
+        scene_type="outfit",
+        visual_summary="x",
+        aesthetic_descriptors=["cottagecore", "rustic", "cottagecore", "soft"],
+        mood_descriptors=["calm", "warm"],
+        vibe_query="cottagecore, floral, linen",
     )
 
-    assert len(results) == 3
-    assert all("title" in r for r in results)
-    titles = {r["title"] for r in results}
-    assert any("Cottagecore" in t for t in titles)
+    queries = build_search_queries(payload, max_queries=4)
+
+    assert "cottagecore" in queries
+    assert "rustic" in queries
+    assert len(queries) == len(set(queries))
+    assert len(queries) <= 4
 
 
-def test_recommend_playlist_empty_for_empty_payload(
-    stub_encoder: StubEncoder, playlist_index: PlaylistIndex
-) -> None:
+def test_build_search_queries_empty_payload_returns_empty() -> None:
     payload = make_payload(scene_type="unclear", visual_summary="", vibe_query="")
-    results = recommend_playlist(
-        payload, top_k=3, encoder=stub_encoder, playlist_index=playlist_index
+    assert build_search_queries(payload) == []
+
+
+def test_build_search_queries_strips_punctuation() -> None:
+    payload = make_payload(
+        scene_type="outfit",
+        visual_summary="x",
+        aesthetic_descriptors=["cottage/core?", "y2k!"],
+        vibe_query="",
     )
-    assert results == []
+    queries = build_search_queries(payload)
+    assert all("?" not in q and "!" not in q for q in queries)
 
 
-def test_recommend_playlist_builds_query_from_payload(
-    stub_encoder: StubEncoder, playlist_index: PlaylistIndex
+def test_normalize_track_keeps_useful_fields() -> None:
+    raw = make_raw_track("abc", "Heather", "Conan Gray")
+
+    track = normalize_track(raw)
+
+    assert isinstance(track, Track)
+    assert track.spotify_id == "abc"
+    assert track.name == "Heather"
+    assert track.artists == ["Conan Gray"]
+    assert track.spotify_url.endswith("/abc")
+    assert track.album_image is not None
+    out = track.to_dict(score=0.42)
+    assert out["score"] == 0.42
+    assert out["preview_url"].endswith(".mp3")
+
+
+def test_normalize_track_drops_malformed() -> None:
+    assert normalize_track({}) is None
+    assert normalize_track({"id": "x"}) is None
+    assert normalize_track({"name": "x"}) is None
+
+
+# ---- end-to-end recommend_tracks tests --------------------------------------
+
+
+def test_recommend_tracks_fetches_dedupes_and_returns_top_k(
+    stub_encoder: StubEncoder,
 ) -> None:
     payload = make_payload(
         scene_type="outfit",
-        visual_summary="cottagecore",
-        vibe_query="floral cottagecore linen prairie",
-    )
-    results = recommend_playlist(
-        payload, top_k=2, encoder=stub_encoder, playlist_index=playlist_index
-    )
-    assert len(results) == 2
-
-
-def test_load_playlists_from_seed_uses_bundled_file() -> None:
-    playlists = load_playlists_from_seed()
-    assert len(playlists) >= 50
-    aesthetics = {p.aesthetic for p in playlists if p.aesthetic}
-    assert "cottagecore" in aesthetics
-    assert "streetwear" in aesthetics
-    assert "y2k" in aesthetics
-
-
-def test_load_playlists_from_csv_normalizes_columns(tmp_path: Path) -> None:
-    csv_path = tmp_path / "playlists.csv"
-    csv_path.write_text(
-        "user_id,playlistname,extra\n"
-        "alice,Cottagecore mornings,foo\n"
-        "bob,Y2K bops,bar\n"
-        "alice,Cottagecore mornings,foo\n",
-        encoding="utf-8",
+        visual_summary="cottagecore floral",
+        aesthetic_descriptors=["cottagecore", "rustic"],
+        vibe_query="cottagecore, floral, linen",
     )
 
-    playlists = load_playlists_from_csv(csv_path)
+    spotify = StubSpotify(
+        results_by_query={
+            "cottagecore": [
+                make_raw_track("a", "Heather", "Conan Gray"),
+                make_raw_track("b", "Cardigan", "Taylor Swift"),
+            ],
+            "rustic": [
+                make_raw_track("b", "Cardigan", "Taylor Swift"),  # dup with above
+                make_raw_track("c", "Ophelia", "The Lumineers"),
+            ],
+        }
+    )
 
-    titles = [p.title for p in playlists]
-    assert titles == ["Cottagecore mornings", "Y2K bops"]
-    assert playlists[0].curator == "alice"
+    results = recommend_tracks(
+        payload,
+        top_k=3,
+        encoder=stub_encoder,
+        spotify=spotify,
+        use_query_expansion=False,
+    )
+
+    assert len(results) == 3
+    ids = {r["spotify_id"] for r in results}
+    assert ids == {"a", "b", "c"}
+    scores = [r["score"] for r in results]
+    assert scores == sorted(scores, reverse=True)
+    assert len(spotify.calls) >= 2  # at least the two non-empty queries
 
 
-def test_load_playlist_index_falls_back_to_seed_when_csv_missing(
-    tmp_path: Path, stub_encoder: StubEncoder
+def test_recommend_tracks_truncates_to_top_k(stub_encoder: StubEncoder) -> None:
+    payload = make_payload(
+        scene_type="outfit",
+        visual_summary="x",
+        aesthetic_descriptors=["folk"],
+        vibe_query="folk",
+    )
+    spotify = StubSpotify(
+        results_by_query={
+            "folk": [make_raw_track(f"id{i}", f"track{i}", "artist") for i in range(8)]
+        }
+    )
+
+    results = recommend_tracks(
+        payload, top_k=4, encoder=stub_encoder, spotify=spotify, use_query_expansion=False
+    )
+
+    assert len(results) == 4
+
+
+def test_recommend_tracks_returns_empty_for_empty_payload(
+    stub_encoder: StubEncoder,
 ) -> None:
-    """With no source CSV and no cached embeddings, the loader uses the seed set."""
-    seed_path = tmp_path / "seed.json"
-    seed_path.write_text(
-        json.dumps(
-            [
-                {"title": "Cottagecore mornings", "aesthetic": "cottagecore"},
-                {"title": "Y2K bops", "aesthetic": "y2k"},
+    payload = make_payload(scene_type="unclear", visual_summary="", vibe_query="")
+    spotify = StubSpotify(results_by_query={})
+
+    results = recommend_tracks(
+        payload, top_k=5, encoder=stub_encoder, spotify=spotify
+    )
+
+    assert results == []
+    assert spotify.calls == []  # never reached Spotify
+
+
+def test_recommend_tracks_handles_no_search_results(stub_encoder: StubEncoder) -> None:
+    payload = make_payload(
+        scene_type="outfit",
+        visual_summary="x",
+        aesthetic_descriptors=["nonexistent"],
+        vibe_query="nonexistent",
+    )
+    spotify = StubSpotify(results_by_query={})
+
+    results = recommend_tracks(
+        payload, top_k=5, encoder=stub_encoder, spotify=spotify
+    )
+
+    assert results == []
+
+
+def test_recommend_tracks_accepts_explicit_queries(stub_encoder: StubEncoder) -> None:
+    payload = make_payload(
+        scene_type="outfit",
+        visual_summary="anything",
+        vibe_query="anything",
+    )
+    spotify = StubSpotify(
+        results_by_query={"manual": [make_raw_track("z", "Zed", "Zee")]}
+    )
+
+    results = recommend_tracks(
+        payload,
+        top_k=1,
+        encoder=stub_encoder,
+        spotify=spotify,
+        queries=["manual"],
+        use_query_expansion=False,
+    )
+
+    assert len(results) == 1
+    assert results[0]["spotify_id"] == "z"
+    assert spotify.calls == [("manual", DEFAULT_RESULTS_PER_QUERY)]
+
+
+def test_recommend_tracks_passes_query_through_encoder(
+    stub_encoder: StubEncoder,
+) -> None:
+    """Track text should actually be encoded by the encoder we passed in."""
+    payload = make_payload(
+        scene_type="outfit",
+        visual_summary="x",
+        aesthetic_descriptors=["folk"],
+        vibe_query="folk",
+    )
+    spotify = StubSpotify(
+        results_by_query={
+            "folk": [
+                make_raw_track("a", "Cottagecore Linen Folk", "Folk Artist"),
+                make_raw_track("b", "Chrome Y2K Bass", "Cyber Artist"),
             ]
-        ),
-        encoding="utf-8",
+        }
     )
 
-    index = load_playlist_index(
+    results = recommend_tracks(
+        payload,
+        top_k=2,
         encoder=stub_encoder,
-        seed_path=seed_path,
-        cache_path=tmp_path / "cache.npy",
-        source_csv=tmp_path / "missing.csv",
+        spotify=spotify,
+        use_query_expansion=False,
     )
 
-    assert len(index.playlists) == 2
-    assert index.embeddings.shape == (2, stub_encoder.dim)
+    assert len(results) == 2
+    # The stub encoder differentiates by character buckets, so the two
+    # tracks should not get identical scores.
+    assert results[0]["score"] != results[1]["score"]
 
 
-def test_load_playlist_index_uses_cache_when_count_matches(
-    tmp_path: Path, stub_encoder: StubEncoder
+# ---- Spotify client behavior under failure ----------------------------------
+
+
+def test_spotify_client_raises_without_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SPOTIFY_CLIENT_ID", raising=False)
+    monkeypatch.delenv("SPOTIFY_CLIENT_SECRET", raising=False)
+    client = SpotifyClient()
+
+    with pytest.raises(ConfigurationError):
+        client._ensure_credentials()
+
+
+def test_spotify_client_empty_query_short_circuits(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    seed_path = tmp_path / "seed.json"
-    seed_path.write_text(
-        json.dumps([{"title": "Cottagecore mornings", "aesthetic": "cottagecore"}]),
-        encoding="utf-8",
-    )
-    cache_path = tmp_path / "cache.npy"
-    cached = l2_normalize(np.ones((1, stub_encoder.dim), dtype=np.float32))
-    np.save(cache_path, cached)
+    """Empty queries must not even attempt a token fetch."""
+    monkeypatch.setenv("SPOTIFY_CLIENT_ID", "stub")
+    monkeypatch.setenv("SPOTIFY_CLIENT_SECRET", "stub")
+    client = SpotifyClient()
 
-    index = load_playlist_index(
-        encoder=stub_encoder,
-        seed_path=seed_path,
-        cache_path=cache_path,
-        source_csv=tmp_path / "missing.csv",
-    )
+    def boom(*args, **kwargs):  # would explode if called
+        raise AssertionError("Should not have hit the network for an empty query")
 
-    np.testing.assert_allclose(index.embeddings, cached)
+    monkeypatch.setattr(client, "_fetch_token", boom)
+    assert client.search_tracks("") == []
+    assert client.search_tracks("   ") == []

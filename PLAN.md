@@ -37,7 +37,7 @@ the result so we can run a small human study at the end.
 | Image pipeline -> text retrieval glue                    | done                               | `src/vibecheck/rec/`, `pipeline.analyze_images(with_recommendations=True)` |
 | Selection objective (diversity + complementarity)        | done (greedy + ablations)          | `src/vibecheck/rec/select.py`, `scripts/ablate_selection.py`               |
 | Stronger learned tag->vibe model                         | done (logreg + MLP)                | `src/vibecheck/vibe/learned.py`, `scripts/train_vibe_classifier.py`        |
-| Music playlist recommendation                            | done (title-embedding match)       | `src/vibecheck/rec/playlists.py`, `scripts/build_playlist_index.py`        |
+| Music playlist recommendation                            | done (live Spotify search + rerank) | `src/vibecheck/rec/playlists.py`, `src/vibecheck/rec/spotify_client.py`    |
 | Multi-photo aggregation experiment                       | **not built**                      | --                                                                         |
 | Tag F1 / aesthetic accuracy evaluation                   | **not built**                      | --                                                                         |
 | FastAPI HTTP server (mobile expects `POST /api/analyze`) | **not built**                      | --                                                                         |
@@ -289,39 +289,75 @@ quality.
 
 ### Step 5 — Music playlist recommendation *(DONE)*
 
-Goal: produce a playlist whose title matches the inferred vibe.
+Goal: generate a playlist of real Spotify tracks matching the inferred vibe.
 
-Solo-able after Step 1.
+**Constraint we hit:** Spotify deprecated `/v1/recommendations`,
+`/audio-features`, and `/audio-analysis` for new developer apps on
+Nov 27, 2024. The original plan to use seed-genres + audio feature
+targeting is impossible for any app created after that date. We pivoted
+to live `/v1/search?type=track` and re-rank with our fashion-bert
+encoder. Spotify is the catalog; we are the ranker.
 
-- `data/seed/playlist_seeds.json` -- 68 hand-written (title, aesthetic)
-seeds across the 20 catalog vibes. Bundled so the pipeline works
-without any external download; the Kaggle Spotify Playlists CSV can
-be dropped in later via `--source data/raw/spotify_playlists.csv`.
-- `scripts/build_playlist_index.py` -- encodes each playlist *title*
-with `fashion-bert-output-v2` and caches embeddings to
-`data/processed/playlist_embeddings.npy`. Accepts any CSV with a
-`name` / `title` / `playlist_name` column.
+(An earlier version of this step matched made-up playlist titles via
+fashion-bert embeddings -- those titles weren't real Spotify playlists
+and weren't playable, so it was discarded.)
+
+- `src/vibecheck/rec/spotify_client.py`:
+  - Thread-safe Spotify Web API client using Client Credentials Flow
+  (no user-OAuth needed; public catalog reads only)
+  - In-process token cache with auto-refresh (real expiry ~60 min,
+  we refresh slightly early)
+  - Handles 401 (force-refresh + retry once), 429 (Retry-After), and
+  prints a clear warning on other non-200 responses
+  - `SPOTIFY_SEARCH_MAX_LIMIT = 10` -- undocumented constraint we
+  discovered empirically: `/v1/search` rejects `limit > 10` with
+  HTTP 400 "Invalid limit" on new-app Client Credentials tokens,
+  despite the docs claiming 0-50 is the valid range
 - `src/vibecheck/rec/playlists.py`:
-  - `Playlist`, `PlaylistIndex` (FAISS IndexFlatIP over normalized
-  title embeddings)
-  - `load_playlist_index(...)` with the same cache-or-rebuild
-  resolution order as the product index
-  - `recommend_playlist(payload, top_k, ...)` that builds a query
-  string from the vision payload and returns the top-K matches
+  - `Track` dataclass (id, name, artists, album_image, preview_url,
+  spotify_url, duration_ms) -- exactly the fields the iOS app needs
+  to render a playable card
+  - `build_search_queries(payload)` pulls 6-8 short keyword queries
+  from `aesthetic_descriptors`, chunks of `vibe_query`, and
+  `mood_descriptors`. We need more queries (vs. fewer with higher
+  limits) because of the 10-item cap above.
+  - `recommend_tracks(payload, top_k, ...)`:
+    1. Build queries from payload
+    2. Hit `/v1/search` per query (live, no cache)
+    3. Dedupe pool by Spotify track ID
+    4. Encode each track's "<title> - <artist>" with fashion-bert
+    5. Encode the vibe query with optional Reddit-based expansion
+    6. Cosine similarity -> top-K
 - Pipeline integration: `analyze_images(with_playlist=True)` populates
 `VibeAnalysisResult.playlist_recommendations`. `scripts/demo.py`
-exposes `--playlist` / `--playlist-top-k`.
-- 10 new tests in `tests/test_playlists.py` covering the loader, FAISS
-search, CSV column normalization, and seed-fallback path.
-- Smoke test on real queries -> hits top-3 for cottagecore (0.72),
-cyberpunk (0.83), streetwear (0.70), y2k (0.56). Minimalist is
-weakest (top-1 only at 0.51); the fashion-tuned encoder is not
-music-domain. This is the expected finding to flag in the report; the
-upgrade path (fine-tune a music-bert on hand-curated (vibe, title)
-pairs) is unblocked and saved for later.
+exposes `--playlist` / `--playlist-top-k`. Credentials live in `.env`
+(`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`); `.env` is gitignored.
+- 13 tests in `tests/test_playlists.py` covering query building,
+dedup, encoder re-ranking, graceful empty-result handling, and the
+Spotify client's credential-loading + empty-query short-circuits.
+The real Spotify API is never hit in CI -- a `StubSpotify` class
+returns canned responses.
+- Live smoke test against real Spotify (4 vibes, top-5 each):
 
-Deliverable: vision payload -> playlist titles ranked by vibe match,
-working end-to-end on the bundled seed set without any external download.
+  | vibe | top-1 score | top-1 track |
+  | --- | --- | --- |
+  | cottagecore | 0.625 | "Indie Folk" -- OlexandrMusic |
+  | cyberpunk | 0.557 | "Cyberpunk" -- ATEEZ |
+  | y2k | 0.498 | "2000s Pop Punk Rnb" -- WHATMORE |
+  | streetwear | 0.609 | "Streetwear" -- Bale |
+
+**Honest finding for the writeup:** Spotify's search is keyword-driven
+on track/artist/album metadata. Without the deprecated
+`/recommendations` we can't ask for "tracks that *sound* like
+cottagecore" -- only "tracks whose metadata *says* cottagecore." Our
+fashion-bert reranking still meaningfully reorders the candidate pool,
+but the upstream pool is biased toward tracks with the literal vibe
+word in their title. The upgrade path (fine-tune a music-bert on
+hand-curated (vibe, track-title) pairs, or partner with Last.fm tag
+data which is still openly queryable) is unblocked and saved for later.
+
+Deliverable: vision payload -> real Spotify tracks with playable URLs,
+ranked by our model, working live in production for the iOS app.
 
 ### Step 6 — Multi-photo aggregation experiment
 

@@ -167,15 +167,15 @@ def analyze_images(
     if with_playlist:
         start = perf_counter()
         try:
-            from vibecheck.rec.playlists import recommend_playlist
+            from vibecheck.rec.playlists import recommend_tracks
 
-            playlist_recommendations = recommend_playlist(
+            playlist_recommendations = recommend_tracks(
                 vision_payload,
                 top_k=playlist_top_k,
             )
         except Exception as exc:
             warnings.append(f"Playlist recommendation failed: {exc}")
-        timings_ms["recommend_playlist"] = _elapsed_ms(start)
+        timings_ms["recommend_tracks"] = _elapsed_ms(start)
 
     debug = DebugInfo(
         input_count=len(normalized_inputs),
