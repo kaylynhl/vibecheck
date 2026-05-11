@@ -119,5 +119,6 @@
     "scene_type": "room",
     "validation_passed": true,
     "parse_error": null
-  }
+  },
+  "item_recommendations": []
 }

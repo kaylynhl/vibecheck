@@ -31,6 +31,7 @@ def test_analyze_images_to_dict_returns_json_ready_shape(outfit_payload) -> None
         "top_vibes",
         "confidence_notes",
         "debug",
+        "item_recommendations",
     }
     assert isinstance(result["extracted_tags"], list)
     assert isinstance(result["debug"], dict)

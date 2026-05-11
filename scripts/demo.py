@@ -28,10 +28,26 @@ def main() -> int:
         default=None,
         help="Optional analysis mode hint.",
     )
+    parser.add_argument(
+        "--recommend",
+        action="store_true",
+        help="Also run vibe-to-product recommendations (requires the rec module).",
+    )
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=10,
+        help="Number of product recommendations to return (default: 10).",
+    )
     args = parser.parse_args()
 
     try:
-        result = analyze_images_to_dict(args.images, mode=args.mode)
+        result = analyze_images_to_dict(
+            args.images,
+            mode=args.mode,
+            with_recommendations=args.recommend,
+            recommend_top_k=args.top_k,
+        )
     except ConfigurationError as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)
         return 2

@@ -111,5 +111,6 @@
     "scene_type": "outfit",
     "validation_passed": true,
     "parse_error": null
-  }
+  },
+  "item_recommendations": []
 }

@@ -105,6 +105,7 @@ class VibeAnalysisResult:
     top_vibes: list[VibeScore]
     confidence_notes: list[str]
     debug: DebugInfo
+    item_recommendations: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Return a fully JSON-safe representation of the analysis result."""
@@ -115,4 +116,5 @@ class VibeAnalysisResult:
             "top_vibes": [score.to_dict() for score in self.top_vibes],
             "confidence_notes": list(self.confidence_notes),
             "debug": self.debug.to_dict(),
+            "item_recommendations": list(self.item_recommendations),
         }

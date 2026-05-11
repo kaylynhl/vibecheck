@@ -24,8 +24,17 @@ def analyze_images(
     *,
     mode: Mode | None = None,
     client: GroqVisionClient | None = None,
+    with_recommendations: bool = False,
+    recommend_top_k: int = 10,
 ) -> VibeAnalysisResult:
-    """Run the full image-to-vibe pipeline and return a structured analysis result."""
+    """Run the full image-to-vibe pipeline and return a structured analysis result.
+
+    When ``with_recommendations`` is True, also runs the text-retrieval
+    recommender on the parsed vision payload and attaches the resulting product
+    list to ``VibeAnalysisResult.item_recommendations``. Recommendations are
+    skipped on the malformed-output fallback path because there is no parsed
+    payload to derive a query from.
+    """
     timings_ms: dict[str, int] = {}
     warnings: list[str] = []
 
@@ -115,6 +124,21 @@ def analyze_images(
         warnings.append("No positive vibe scores were found; returning the ranked list for inspection.")
         top_vibes = vibe_scores[:3]
 
+    item_recommendations: list[dict[str, object]] = []
+    if with_recommendations:
+        start = perf_counter()
+        try:
+            # Lazy import: the rec module pulls in sentence-transformers + faiss.
+            from vibecheck.rec import RecommendationConfig, recommend_items
+
+            item_recommendations = recommend_items(
+                vision_payload,
+                config=RecommendationConfig(top_k=recommend_top_k),
+            )
+        except Exception as exc:
+            warnings.append(f"Recommendation step failed: {exc}")
+        timings_ms["recommend_items"] = _elapsed_ms(start)
+
     debug = DebugInfo(
         input_count=len(normalized_inputs),
         input_kinds=[image.mime_type for image in normalized_inputs],
@@ -132,6 +156,7 @@ def analyze_images(
         top_vibes=top_vibes,
         confidence_notes=confidence_notes,
         debug=debug,
+        item_recommendations=item_recommendations,
     )
 
 
@@ -140,9 +165,17 @@ def analyze_images_to_dict(
     *,
     mode: Mode | None = None,
     client: GroqVisionClient | None = None,
+    with_recommendations: bool = False,
+    recommend_top_k: int = 10,
 ) -> dict[str, object]:
     """Run the pipeline and return a JSON-ready dictionary."""
-    return analyze_images(inputs, mode=mode, client=client).to_dict()
+    return analyze_images(
+        inputs,
+        mode=mode,
+        client=client,
+        with_recommendations=with_recommendations,
+        recommend_top_k=recommend_top_k,
+    ).to_dict()
 
 
 def _elapsed_ms(start_time: float) -> int:

@@ -23,7 +23,9 @@ ipykernel
 torch
 torchvision
 transformers
+sentence-transformers
 open-clip-torch
+faiss-cpu
 
 # ---------- Data + labeling utilities ----------
 python-dotenv

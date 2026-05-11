@@ -12,6 +12,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "top_vibes",
     "confidence_notes",
     "debug",
+    "item_recommendations",
 }
 
 
