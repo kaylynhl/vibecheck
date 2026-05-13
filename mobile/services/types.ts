@@ -26,6 +26,7 @@ export interface Track {
   albumArt?: string;
   previewUrl?: string;
   durationMs?: number;
+  spotifyUrl?: string;
 }
 
 export interface Playlist {
@@ -45,6 +46,7 @@ export interface Item {
   category: "furniture" | "decor" | "clothing" | "accessory";
   price?: string;
   source?: string;
+  productUrl?: string;
 }
 
 export type VibeMode = "room" | "outfit";

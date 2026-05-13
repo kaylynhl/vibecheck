@@ -50,7 +50,8 @@
         {
           "photosPermission": "Allow VibeCheck to access your photos to analyze your vibe"
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

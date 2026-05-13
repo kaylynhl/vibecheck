@@ -495,6 +495,76 @@ strictness and parse free-form text instead.
 Deliverable: real photo on a real phone -> real recommendations from the real
 model. ✓
 
+### Step 8.1 — UI wiring + Spotify integration *(DONE)*
+
+After the first screen-recording demo, several "looks-clickable-but-isn't"
+bugs surfaced:
+
+- Depop item cards rendered but didn't open the product page.
+- Playlist `Open` / `Play` buttons were no-ops.
+- The per-track play button was a no-op (Spotify's `preview_url` was deprecated
+  for Client Credentials apps in late 2024, so we never had a stream URL).
+- Playlist cover art was just the first track's album image.
+
+What landed:
+
+- `mobile/components/ItemCard.tsx` -- tap a card -> `Linking.openURL(productUrl)`,
+  with `canOpenURL` check and a friendly alert if the URL is missing or
+  blocked. Backward-compatible: if the parent provides an `onPress` it wins.
+- `mobile/components/PlaylistCard.tsx` rewritten:
+  - Per-track row tap -> `Linking.openURL(track.spotifyUrl)` (opens in the
+    Spotify app if installed, otherwise web).
+  - Per-track play button -> `WebBrowser.openBrowserAsync` against
+    `https://open.spotify.com/embed/track/<id>`. This is **the trick Discord
+    uses**: Spotify's official embed plays the 30-second preview through their
+    own auth context, so it works for signed-out users without needing the
+    deprecated `preview_url` field.
+  - Playlist "Preview" button -> same embed flow on the first track.
+  - Playlist "Open" button -> Linking.openURL on the first track's
+    `spotifyUrl`.
+  - New "Save to Spotify" button -> triggers PKCE OAuth (see below), creates
+    a real private playlist in the signed-in user's account, and offers to
+    open it.
+- `mobile/services/spotify.ts` -- imperative PKCE OAuth flow against the
+  Spotify Web API. No client secret needed; client ID lives in
+  `EXPO_PUBLIC_SPOTIFY_CLIENT_ID`. Token cached in-memory for the 1h
+  validity window. Two API calls per save: `POST /users/{id}/playlists`
+  then `POST /playlists/{id}/tracks` (chunked at 100 URIs per Spotify's
+  cap). Redirect URI is `vibecheck://oauth-callback` (already declared
+  via `app.json` "scheme": "vibecheck"); inside Expo Go the runtime
+  computes an `exp://...` URI that also has to be added to the Spotify
+  dashboard.
+- `mobile/services/types.ts` -- added `Track.spotifyUrl` and
+  `Item.productUrl` (the backend was already returning both; the TypeScript
+  contract just didn't surface them).
+
+Backend cover art:
+
+- `src/vibecheck/rec/cover_art.py` builds a Pollinations.ai prompt URL
+  (free, no auth, SDXL/Flux backend) seeded deterministically by vibe
+  name, so the same aesthetic always gets the same cover. The result is
+  just a URL -- the mobile `<Image>` loads it directly, Pollinations
+  caches by (prompt, seed, size) on its CDN, so we pay neither bandwidth
+  nor latency for repeats. Set `VIBECHECK_DISABLE_COVER_ART=1` to fall
+  back to the previous album-art behaviour (used in tests).
+- `src/vibecheck/server/mappers.py::_map_playlist` now prefers the
+  generated cover and falls back to album art if cover generation is
+  disabled or fails.
+
+Why not Groq for cover art? Groq is a text/LLM-only inference service --
+no image generation surface, period. Free options ranked by setup cost:
+
+1. Pollinations (chosen) -- zero friction, decent quality, free.
+2. Cloudflare Workers AI -- better quality, free tier 10k req/day, but
+   needs a Cloudflare account + API token.
+3. Hugging Face Inference API -- best SDXL quality, free tier rate-limited,
+   needs a HF account + token.
+4. DALL-E / OpenAI -- best quality but ~$0.04/image and a paid key.
+
+Tests: 10/10 server tests pass, including a new
+`test_analyze_uses_generated_cover_art_when_enabled` that exercises the
+non-disabled path. Full suite still 92/92.
+
 ### Step 9 — Human study
 
 Goal: collect ratings from non-team participants for the report.

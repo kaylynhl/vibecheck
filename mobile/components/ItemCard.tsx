@@ -1,4 +1,4 @@
-import { View, Text, Image, Pressable, ScrollView } from "react-native";
+import { View, Text, Image, Pressable, ScrollView, Linking, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Item } from "../services/types";
 
@@ -7,12 +7,30 @@ interface ItemCardProps {
   onPress?: () => void;
 }
 
+async function openProductUrl(item: Item) {
+  if (!item.productUrl) {
+    Alert.alert("No link", "This item doesn't have a product page.");
+    return;
+  }
+  try {
+    const supported = await Linking.canOpenURL(item.productUrl);
+    if (!supported) {
+      Alert.alert("Can't open link", item.productUrl);
+      return;
+    }
+    await Linking.openURL(item.productUrl);
+  } catch (err) {
+    Alert.alert("Couldn't open", String(err));
+  }
+}
+
 export function ItemCard({ item, onPress }: ItemCardProps) {
   const matchPercent = Math.round(item.matchScore * 100);
+  const handlePress = onPress ?? (() => openProductUrl(item));
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       className="w-40 bg-dark-800 rounded-2xl overflow-hidden border border-dark-700 active:opacity-80"
     >
       <View className="relative">
@@ -89,7 +107,9 @@ export function ItemList({
           <ItemCard
             key={item.id}
             item={item}
-            onPress={() => onItemPress?.(item)}
+            onPress={
+              onItemPress ? () => onItemPress(item) : () => openProductUrl(item)
+            }
           />
         ))}
       </ScrollView>

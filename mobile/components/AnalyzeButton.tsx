@@ -18,12 +18,12 @@ export function AnalyzeButton({
 
   return (
     <Pressable
-      onPress={onPress}
-      disabled={isDisabled}
+      onPress={isDisabled ? undefined : onPress}
+      accessibilityState={{ disabled: isDisabled }}
       className={`py-4 px-6 rounded-2xl flex-row items-center justify-center ${
         isDisabled
           ? "bg-dark-700"
-          : "bg-gradient-to-r from-primary-500 to-accent-purple active:opacity-90"
+          : "bg-primary-500 active:opacity-90"
       }`}
       style={
         !isDisabled

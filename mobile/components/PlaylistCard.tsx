@@ -1,6 +1,9 @@
-import { View, Text, Image, Pressable } from "react-native";
+import { useState } from "react";
+import { View, Text, Image, Pressable, Linking, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as WebBrowser from "expo-web-browser";
 import type { Playlist, Track } from "../services/types";
+import { spotifyApi } from "../services/spotify";
 
 function formatDuration(ms: number): string {
   const minutes = Math.floor(ms / 60000);
@@ -8,16 +11,50 @@ function formatDuration(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
+// Spotify's public embed player serves the 30s preview audio under its own
+// auth context (same trick Discord uses). Works for signed-out users, no
+// OAuth required. Pass the track ID, not the full spotify_url.
+function spotifyEmbedUrl(trackId: string): string {
+  return `https://open.spotify.com/embed/track/${trackId}`;
+}
+
+async function openInSpotify(url: string | undefined) {
+  if (!url) {
+    Alert.alert("No link", "No Spotify URL for this track.");
+    return;
+  }
+  try {
+    await Linking.openURL(url);
+  } catch (err) {
+    Alert.alert("Couldn't open Spotify", String(err));
+  }
+}
+
+async function openEmbedPreview(track: Track) {
+  if (!track.id) {
+    Alert.alert("No preview", "No track ID available.");
+    return;
+  }
+  try {
+    await WebBrowser.openBrowserAsync(spotifyEmbedUrl(track.id), {
+      dismissButtonStyle: "close",
+      presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+      controlsColor: "#1DB954",
+    });
+  } catch (err) {
+    Alert.alert("Couldn't open preview", String(err));
+  }
+}
+
 interface TrackRowProps {
   track: Track;
   index: number;
-  onPress?: () => void;
 }
 
-function TrackRow({ track, index, onPress }: TrackRowProps) {
+function TrackRow({ track, index }: TrackRowProps) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => openInSpotify(track.spotifyUrl)}
       className="flex-row items-center py-2 active:opacity-70"
     >
       <Text className="text-dark-500 w-6 text-sm">{index + 1}</Text>
@@ -42,13 +79,17 @@ function TrackRow({ track, index, onPress }: TrackRowProps) {
         </Text>
       </View>
 
-      {track.durationMs && (
+      {track.durationMs ? (
         <Text className="text-dark-500 text-xs">
           {formatDuration(track.durationMs)}
         </Text>
-      )}
+      ) : null}
 
-      <Pressable className="ml-3 p-1">
+      <Pressable
+        onPress={() => openEmbedPreview(track)}
+        hitSlop={8}
+        className="ml-3 p-1"
+      >
         <Ionicons name="play-circle" size={24} color="#6366f1" />
       </Pressable>
     </Pressable>
@@ -66,11 +107,49 @@ export function PlaylistCard({
   onPlay,
   onOpenInSpotify,
 }: PlaylistCardProps) {
+  const [saving, setSaving] = useState(false);
+
   const totalDuration = playlist.tracks.reduce(
     (acc, track) => acc + (track.durationMs || 0),
     0
   );
   const totalMinutes = Math.floor(totalDuration / 60000);
+  const firstTrack = playlist.tracks[0];
+
+  const handlePlay =
+    onPlay ?? (() => (firstTrack ? openEmbedPreview(firstTrack) : null));
+  const handleOpen =
+    onOpenInSpotify ??
+    (() => openInSpotify(firstTrack?.spotifyUrl));
+
+  const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const result = await spotifyApi.savePlaylistToLibrary(playlist);
+      if (result.ok) {
+        Alert.alert(
+          "Saved to Spotify",
+          `"${playlist.name}" is now in your library.`,
+          [
+            { text: "OK" },
+            ...(result.playlistUrl
+              ? [
+                  {
+                    text: "Open it",
+                    onPress: () => Linking.openURL(result.playlistUrl!),
+                  },
+                ]
+              : []),
+          ]
+        );
+      } else {
+        Alert.alert("Couldn't save", result.error);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <View className="bg-dark-800 rounded-2xl overflow-hidden border border-dark-700">
@@ -97,19 +176,19 @@ export function PlaylistCard({
             {playlist.tracks.length} tracks · {totalMinutes} min
           </Text>
 
-          <View className="flex-row gap-2 mt-3">
+          <View className="flex-row gap-2 mt-3 flex-wrap">
             <Pressable
-              onPress={onPlay}
+              onPress={handlePlay}
               className="bg-primary-500 px-4 py-2 rounded-full flex-row items-center"
             >
               <Ionicons name="play" size={14} color="white" />
               <Text className="text-white font-semibold text-sm ml-1">
-                Play
+                Preview
               </Text>
             </Pressable>
 
             <Pressable
-              onPress={onOpenInSpotify}
+              onPress={handleOpen}
               className="bg-dark-700 px-4 py-2 rounded-full flex-row items-center"
             >
               <Ionicons name="open-outline" size={14} color="#64748b" />
@@ -118,6 +197,21 @@ export function PlaylistCard({
               </Text>
             </Pressable>
           </View>
+
+          <Pressable
+            onPress={handleSave}
+            disabled={saving}
+            className="bg-[#1DB954] px-4 py-2 rounded-full flex-row items-center mt-2 self-start active:opacity-80"
+          >
+            <Ionicons
+              name={saving ? "hourglass-outline" : "add-circle"}
+              size={14}
+              color="white"
+            />
+            <Text className="text-white font-semibold text-sm ml-1.5">
+              {saving ? "Saving…" : "Save to Spotify"}
+            </Text>
+          </Pressable>
         </View>
       </View>
 

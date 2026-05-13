@@ -20,6 +20,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
+from vibecheck.rec.cover_art import cover_url_for_vibe
 from vibecheck.schemas import VibeAnalysisResult
 from vibecheck.tags.vocabulary import TAG_CATEGORIES
 
@@ -143,7 +144,10 @@ def _map_playlist(
     synthetic playlist object -- the app renders one playlist card per result.
     """
     mapped_tracks = [_map_track(t) for t in tracks]
-    cover = next(
+    # Prefer a generated cover keyed to the vibe (Pollinations URL). Fall back
+    # to the first track's album art so we always show *something*.
+    generated_cover = cover_url_for_vibe(aesthetic)
+    album_cover = next(
         (t["albumArt"] for t in mapped_tracks if t.get("albumArt")),
         None,
     )
@@ -152,7 +156,7 @@ def _map_playlist(
         "name": f"{aesthetic.title()} Playlist".strip(),
         "tracks": mapped_tracks,
         "aesthetic": aesthetic,
-        "coverImage": cover,
+        "coverImage": generated_cover or album_cover,
     }
 
 

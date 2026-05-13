@@ -96,8 +96,14 @@ def _build_client(
     *,
     tmp_path: Path,
     fake_result: VibeAnalysisResult | None = None,
+    cover_art: bool = False,
 ) -> TestClient:
-    """Construct a TestClient with the pipeline + feedback DB stubbed."""
+    """Construct a TestClient with the pipeline + feedback DB stubbed.
+
+    ``cover_art=False`` (default) disables the Pollinations cover-art generator
+    so tests can assert the album-art fallback deterministically. Tests that
+    care about the generated cover should pass ``cover_art=True``.
+    """
     fake_result = fake_result or _make_fake_result()
 
     captured: dict[str, object] = {}
@@ -115,6 +121,11 @@ def _build_client(
         "DEFAULT_FEEDBACK_DB",
         tmp_path / "feedback.sqlite",
     )
+    if not cover_art:
+        monkeypatch.setenv("VIBECHECK_DISABLE_COVER_ART", "1")
+        # cover_url_for_vibe is @lru_cache'd; clear so the env var takes effect.
+        from vibecheck.rec.cover_art import cover_url_for_vibe
+        cover_url_for_vibe.cache_clear()
 
     app = create_app()
     client = TestClient(app)
@@ -180,6 +191,28 @@ def test_analyze_returns_mobile_shaped_vibe_check(
     assert playlist["tracks"][0]["artist"] == "Indie Artist, Other"
     assert playlist["coverImage"] == "https://example.com/album.jpg"
     assert playlist["aesthetic"] == "cottagecore"
+
+
+def test_analyze_uses_generated_cover_art_when_enabled(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """With Pollinations cover art enabled, playlistRecommendation.coverImage
+    should be a generated URL (not the first track's album art)."""
+    from vibecheck.rec.cover_art import cover_url_for_vibe
+
+    monkeypatch.delenv("VIBECHECK_DISABLE_COVER_ART", raising=False)
+    cover_url_for_vibe.cache_clear()
+
+    client = _build_client(monkeypatch, tmp_path=tmp_path, cover_art=True)
+    response = client.post(
+        "/api/analyze",
+        data={"mode": "room"},
+        files={"photos": ("front.jpg", io.BytesIO(b"\xff\xd8\xff fake jpeg"), "image/jpeg")},
+    )
+    assert response.status_code == 200, response.text
+    cover = response.json()["playlistRecommendation"]["coverImage"]
+    assert cover.startswith("https://image.pollinations.ai/prompt/")
+    assert "seed=" in cover
 
 
 def test_analyze_forwards_kwargs_to_pipeline(
