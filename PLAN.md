@@ -565,6 +565,63 @@ Tests: 10/10 server tests pass, including a new
 `test_analyze_uses_generated_cover_art_when_enabled` that exercises the
 non-disabled path. Full suite still 92/92.
 
+### Step 8.2 — Vision pipeline reliability *(DONE)*
+
+After the second screen-recording demo, a different failure surfaced: for
+a real-world photo of a Middle Eastern coffee shop, the analyzer returned
+"Mid-Century Modern at 2 %" with empty tags, zero items, zero tracks. The
+backend logged a 200 OK so it wasn't an integration issue.
+
+Root cause: Llama-4 Scout produced output that failed the strict JSON
+parser in `groq_vision.py`, the pipeline took the
+``VisionOutputFormatError`` fallback path, and the resulting "0 tags
++ 0 vibe signal" propagated all the way to the UI. This is the same
+~30 – 40 % JSON-validity failure rate that was already noted under
+"honest finding for the writeup" in step 8.
+
+Two AI-level improvements to fix it (these are genuine design choices,
+not UI/scaffolding — good writeup material):
+
+**Improvement 1: enforce a JSON schema at decode time.**
+`src/vibecheck/features/groq_vision.py` now passes the Responses API's
+`text.format.type = "json_schema"` with a full ``vibe_analysis_output``
+schema mirroring the dataclass. Groq's documented model card explicitly
+supports JSON-schema mode for ``meta-llama/llama-4-scout-17b-16e-instruct``.
+This is a *one-line wire change* on the API side, but the effect is
+structural: the decoder is no longer free to emit malformed JSON; it must
+emit a body matching the schema or it doesn't emit at all. On the offending
+photo, this alone took the result from "Mid-Century Modern @ 2 %" to
+"minimalist @ 57 %" with 10 items and 10 tracks.
+
+**Improvement 2: caption-similarity vibe fallback.**
+`src/vibecheck/vibe/embedding_match.py` is a new scorer that takes the
+vision model's free-form ``visual_summary`` text, embeds it with the
+existing fashion-bert encoder (same model as the product recommender), and
+ranks the 20 catalog vibes by cosine similarity against their
+description + keyword corpus. The pipeline now treats this as a fallback:
+if the tag-based scorer's top vibe is below 5 % (the same threshold the UI
+uses for its low-confidence banner), the caption-embedding scorer takes
+over. This is defence-in-depth — even when the schema-enforced JSON is
+*valid* but semantically thin (e.g. the model describes a scene whose
+descriptors don't intersect our hand-built tag vocab), we still recover a
+meaningful vibe signal from the natural-language caption.
+
+Both layers together are good ablation material:
+1. Strict-JSON parser only (original, ~30 – 40 % failure).
+2. JSON-schema enforced only (eliminates most decode failures).
+3. JSON-schema + caption-embedding fallback (catches the remaining
+   "valid JSON but no vibe signal" cases).
+
+UI honesty: `mobile/app/vibe/[id].tsx` now renders a "low confidence read"
+banner with a "try another photo" CTA whenever the top vibe is below 5 %
+*or* the result has zero tags + zero items + zero tracks. So even in the
+worst case, the demo doesn't lie about its certainty.
+
+Tests: added `tests/test_embedding_match.py` (4 tests, mocked encoder so
+no sentence-transformers load on CI) and updated `test_groq_vision.py` to
+assert the JSON schema is wired into the request payload. Full suite
+96/96.
+
 ### Step 9 — Human study
 
 Goal: collect ratings from non-team participants for the report.

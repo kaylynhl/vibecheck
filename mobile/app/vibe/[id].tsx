@@ -70,6 +70,15 @@ export default function VibeDetailScreen() {
   }
 
   const primaryVibe = vibeData.vibes[0];
+  // Trigger a "low confidence" banner when the top vibe is essentially noise.
+  // 0.05 is the same threshold the backend pipeline uses to decide between
+  // tag-based scoring and the caption-embedding fallback, so this surfaces
+  // cases where even both layers couldn't find a strong match.
+  const lowConfidence = (primaryVibe?.confidence ?? 0) < 0.05;
+  const noResults =
+    vibeData.tags.length === 0 &&
+    vibeData.itemRecommendations.length === 0 &&
+    vibeData.playlistRecommendation.tracks.length === 0;
 
   return (
     <SafeAreaView className="flex-1 bg-dark-900">
@@ -118,6 +127,35 @@ export default function VibeDetailScreen() {
         </View>
 
         <View className="px-4 -mt-8">
+          {(lowConfidence || noResults) && (
+            <View className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4 mb-4 flex-row items-start">
+              <Ionicons
+                name="warning-outline"
+                size={20}
+                color="#eab308"
+                style={{ marginTop: 2 }}
+              />
+              <View className="flex-1 ml-3">
+                <Text className="text-yellow-300 font-semibold mb-1">
+                  Low confidence read
+                </Text>
+                <Text className="text-dark-300 text-sm leading-5">
+                  We couldn't get a strong vibe signal from this photo. Try a
+                  different angle, better lighting, or a more typical room or
+                  outfit shot.
+                </Text>
+                <Pressable
+                  onPress={() => router.push("/")}
+                  className="mt-3 self-start bg-yellow-500/20 px-3 py-1.5 rounded-full"
+                >
+                  <Text className="text-yellow-300 text-xs font-semibold">
+                    Try another photo
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
           <View className="bg-dark-800 rounded-2xl p-5 border border-dark-700 mb-6">
             <Text className="text-xs text-primary-400 uppercase tracking-wide mb-2">
               Your Dominant Vibe

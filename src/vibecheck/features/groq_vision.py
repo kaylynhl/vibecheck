@@ -26,6 +26,49 @@ from vibecheck.schemas import ImageSource, VisionAnalysisPayload
 DEFAULT_GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 DEFAULT_GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
+# JSON Schema we hand to Groq's Responses API via `text.format.type=json_schema`.
+# With this enabled, the decoder is constrained to produce a body that
+# satisfies this schema -- eliminates the vast majority of "Groq vision output
+# was not valid JSON" parse failures we saw on arbitrary photos with Llama-4
+# Scout. The schema mirrors the dataclass `VisionAnalysisPayload` exactly.
+_SCENE_TYPES_LIST = ["room", "outfit", "mixed", "unclear"]
+_VISION_OUTPUT_JSON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "scene_type": {"type": "string", "enum": _SCENE_TYPES_LIST},
+        "visual_summary": {"type": "string"},
+        "palette": {"type": "array", "items": {"type": "string"}},
+        "lighting": {"type": "array", "items": {"type": "string"}},
+        "textures": {"type": "array", "items": {"type": "string"}},
+        "patterns": {"type": "array", "items": {"type": "string"}},
+        "silhouette_or_shape": {"type": "array", "items": {"type": "string"}},
+        "objects_or_items": {"type": "array", "items": {"type": "string"}},
+        "mood_descriptors": {"type": "array", "items": {"type": "string"}},
+        "aesthetic_descriptors": {"type": "array", "items": {"type": "string"}},
+        "vibe_query": {"type": "string"},
+        "uncertainty_notes": {"type": "array", "items": {"type": "string"}},
+        "observed_facts": {"type": "array", "items": {"type": "string"}},
+        "uncertain_inferences": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": [
+        "scene_type",
+        "visual_summary",
+        "palette",
+        "lighting",
+        "textures",
+        "patterns",
+        "silhouette_or_shape",
+        "objects_or_items",
+        "mood_descriptors",
+        "aesthetic_descriptors",
+        "vibe_query",
+        "uncertainty_notes",
+        "observed_facts",
+        "uncertain_inferences",
+    ],
+    "additionalProperties": False,
+}
+
 VISION_SYSTEM_PROMPT = """You are a visual aesthetic analyst for room and outfit photos.
 Your job is to produce grounded observations that help classify aesthetics and vibes.
 
@@ -35,7 +78,7 @@ Rules:
 - Keep direct observations separate from uncertain guesses.
 - Prefer concrete, keyword-rich language useful for downstream vibe matching.
 - If something is ambiguous, say so in the uncertainty fields instead of presenting it as fact.
-- Output strict JSON only. No markdown, no code fences, no commentary outside the JSON object."""
+- Output must conform to the provided JSON schema."""
 
 VISION_USER_PROMPT_TEMPLATE = """Analyze all provided images together as one aesthetic-analysis request.
 {mode_instruction}
@@ -175,6 +218,16 @@ class GroqVisionClient:
                     "content": user_content,
                 }
             ],
+            # Force schema-compliant JSON at decode time. Without this,
+            # Llama-4 Scout produced malformed JSON on ~30-40% of arbitrary
+            # photos, hitting our `VisionOutputFormatError` fallback path.
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "vibe_analysis_output",
+                    "schema": _VISION_OUTPUT_JSON_SCHEMA,
+                }
+            },
         }
 
     @staticmethod

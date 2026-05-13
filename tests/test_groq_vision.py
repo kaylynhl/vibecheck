@@ -67,6 +67,17 @@ def test_build_payload_includes_input_images() -> None:
     assert content[1]["type"] == "input_image"
     assert content[1]["image_url"].startswith("data:image/jpeg;base64,")
 
+    # Schema-enforced JSON output: the decoder is constrained to produce
+    # output matching `vibe_analysis_output`. Without this, Llama-4 Scout
+    # produced malformed JSON on a large fraction of arbitrary photos.
+    assert payload["text"]["format"]["type"] == "json_schema"
+    assert payload["text"]["format"]["name"] == "vibe_analysis_output"
+    schema = payload["text"]["format"]["schema"]
+    assert schema["type"] == "object"
+    assert "scene_type" in schema["properties"]
+    assert "vibe_query" in schema["properties"]
+    assert schema["additionalProperties"] is False
+
 
 def test_analyze_images_wraps_http_errors() -> None:
     client = GroqVisionClient(
@@ -124,7 +135,7 @@ def test_parse_vision_analysis_output_accepts_representative_outfit_json(outfit_
 def test_build_vision_prompts_include_required_instructions() -> None:
     system_prompt, user_prompt = build_vision_prompts("outfit")
 
-    assert "strict JSON only" in system_prompt
+    assert "JSON schema" in system_prompt
     assert "do not invent facts" in system_prompt.lower()
     assert "vibe_query" in user_prompt
     assert "color palette" in user_prompt

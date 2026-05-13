@@ -118,6 +118,32 @@ def analyze_images(
         vibe_scores, confidence_notes = score_vibes(extracted_tags, mode=mode)
     timings_ms["score_vibes"] = _elapsed_ms(start)
 
+    # Fallback: if the tag-based scorer has no real signal (e.g. the vision
+    # model returned descriptors that don't match our hand-built tag vocab),
+    # use the caption-embedding scorer instead. Threshold of 0.05 catches
+    # the "everything at 2%" flatline that produced a degenerate UI in
+    # earlier demos. This is the second layer of defence after the JSON
+    # schema enforcement in groq_vision.py.
+    top_raw = vibe_scores[0].score if vibe_scores else 0.0
+    if top_raw < 0.05 and raw_description.strip():
+        start = perf_counter()
+        try:
+            from vibecheck.vibe.embedding_match import score_vibes_by_caption
+
+            fallback_scores, fallback_notes = score_vibes_by_caption(
+                raw_description
+            )
+            if fallback_scores:
+                vibe_scores = fallback_scores
+                confidence_notes = list(fallback_notes) + list(confidence_notes)
+                warnings.append(
+                    "Tag-based vibe scorer had no signal; switched to "
+                    "caption-embedding similarity fallback."
+                )
+        except Exception as exc:
+            warnings.append(f"Caption-similarity fallback failed: {exc}")
+        timings_ms["caption_fallback"] = _elapsed_ms(start)
+
     if mode and scene_type and scene_type not in {mode, "mixed", "unclear"}:
         warnings.append(
             f"Scene type '{scene_type}' did not match the requested mode '{mode}'."
