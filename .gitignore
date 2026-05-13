@@ -56,3 +56,9 @@ models/
 # --- Archives ---
 *.zip
 *.tar.gz
+
+# --- Personal scratch (not part of the submitted project) ---
+notes.md
+notes/
+TODO.md
+scratch/

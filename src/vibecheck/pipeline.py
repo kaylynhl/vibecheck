@@ -29,7 +29,7 @@ def analyze_images(
     use_selection: bool = False,
     use_learned_classifier: bool = False,
     with_playlist: bool = False,
-    playlist_top_k: int = 5,
+    playlist_top_k: int = 10,
 ) -> VibeAnalysisResult:
     """Run the full image-to-vibe pipeline and return a structured analysis result.
 
@@ -209,7 +209,7 @@ def analyze_images_to_dict(
     use_selection: bool = False,
     use_learned_classifier: bool = False,
     with_playlist: bool = False,
-    playlist_top_k: int = 5,
+    playlist_top_k: int = 10,
 ) -> dict[str, object]:
     """Run the pipeline and return a JSON-ready dictionary."""
     return analyze_images(

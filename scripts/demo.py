@@ -64,7 +64,7 @@ def main() -> int:
     parser.add_argument(
         "--playlist-top-k",
         type=int,
-        default=5,
+        default=10,
         help="Number of playlist matches to return (default: 5).",
     )
     args = parser.parse_args()

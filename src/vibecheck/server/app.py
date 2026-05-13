@@ -73,7 +73,7 @@ def create_app(
     use_learned_classifier: bool = True,
     with_playlist: bool = True,
     recommend_top_k: int = 10,
-    playlist_top_k: int = 5,
+    playlist_top_k: int = 10,
     cors_origins: list[str] | None = None,
 ) -> FastAPI:
     """Construct the FastAPI app. Pulled out so tests can build their own."""

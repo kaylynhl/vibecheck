@@ -1,6 +1,6 @@
 """Greedy diversity- and complementarity-aware selection over candidate items.
 
-This is the "search/optimization" step the proposal explicitly committed to.
+This is the "search/optimization" step our original project proposal committed to.
 Instead of returning the raw top-N from FAISS, we pull a larger candidate pool
 and pick N items that maximize::
 
