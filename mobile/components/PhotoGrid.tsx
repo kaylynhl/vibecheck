@@ -39,7 +39,10 @@ export function PhotoGrid({
     );
   }
 
-  const gridCols = photos.length === 1 ? 1 : 2;
+  // Once there's any photo, always render a 2-column grid: photo tiles +
+  // the add-more tile share the same width so the layout never has an
+  // orphan tile sitting flush-left under a full-width photo.
+  const tileStyle = { width: "48%" as const, aspectRatio: 1 };
 
   return (
     <View className="gap-2">
@@ -51,10 +54,7 @@ export function PhotoGrid({
           <View
             key={uri}
             className="relative"
-            style={{
-              width: gridCols === 1 ? "100%" : "48%",
-              aspectRatio: gridCols === 1 ? 16 / 9 : 1,
-            }}
+            style={tileStyle}
           >
             <Image
               source={{ uri }}
@@ -83,10 +83,7 @@ export function PhotoGrid({
           <Pressable
             onPress={onAddPhoto}
             className="items-center justify-center bg-dark-800 rounded-xl border-2 border-dashed border-dark-600 active:border-primary-500"
-            style={{
-              width: photos.length === 0 ? "100%" : "48%",
-              aspectRatio: 1,
-            }}
+            style={tileStyle}
           >
             <Ionicons name="add" size={32} color="#6366f1" />
             <Text className="text-dark-400 text-xs mt-1">Add more</Text>

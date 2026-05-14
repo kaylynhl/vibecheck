@@ -5,6 +5,13 @@ import * as WebBrowser from "expo-web-browser";
 import type { Playlist, Track } from "../services/types";
 import { spotifyApi } from "../services/spotify";
 
+// Hide the "Save to Spotify" button when no client ID is configured, so the
+// user never taps a button that's guaranteed to fail. Set
+// `EXPO_PUBLIC_SPOTIFY_CLIENT_ID` in mobile/.env to enable saving.
+const SPOTIFY_SAVE_ENABLED = Boolean(
+  process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID
+);
+
 function formatDuration(ms: number): string {
   const minutes = Math.floor(ms / 60000);
   const seconds = Math.floor((ms % 60000) / 1000);
@@ -198,35 +205,29 @@ export function PlaylistCard({
             </Pressable>
           </View>
 
-          <Pressable
-            onPress={handleSave}
-            disabled={saving}
-            className="bg-[#1DB954] px-4 py-2 rounded-full flex-row items-center mt-2 self-start active:opacity-80"
-          >
-            <Ionicons
-              name={saving ? "hourglass-outline" : "add-circle"}
-              size={14}
-              color="white"
-            />
-            <Text className="text-white font-semibold text-sm ml-1.5">
-              {saving ? "Saving…" : "Save to Spotify"}
-            </Text>
-          </Pressable>
+          {SPOTIFY_SAVE_ENABLED && (
+            <Pressable
+              onPress={handleSave}
+              disabled={saving}
+              className="bg-[#1DB954] px-4 py-2 rounded-full flex-row items-center mt-2 self-start active:opacity-80"
+            >
+              <Ionicons
+                name={saving ? "hourglass-outline" : "add-circle"}
+                size={14}
+                color="white"
+              />
+              <Text className="text-white font-semibold text-sm ml-1.5">
+                {saving ? "Saving…" : "Save to Spotify"}
+              </Text>
+            </Pressable>
+          )}
         </View>
       </View>
 
       <View className="border-t border-dark-700 px-4 py-2">
-        {playlist.tracks.slice(0, 5).map((track, index) => (
+        {playlist.tracks.map((track, index) => (
           <TrackRow key={track.id} track={track} index={index} />
         ))}
-
-        {playlist.tracks.length > 5 && (
-          <Pressable className="py-3 items-center">
-            <Text className="text-primary-400 font-medium text-sm">
-              View all {playlist.tracks.length} tracks
-            </Text>
-          </Pressable>
-        )}
       </View>
     </View>
   );
