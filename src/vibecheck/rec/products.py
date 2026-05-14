@@ -7,6 +7,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote_plus, urlparse
 
 import numpy as np
 
@@ -16,6 +17,49 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_PRODUCTS_PATH = REPO_ROOT / "reddit" / "example-fashion-dataset.json"
 DEFAULT_PRECOMPUTED_EMBEDDINGS = REPO_ROOT / "reddit" / "FINAL-EMBEDDINGS.csv"
 DEFAULT_CACHE_PATH = REPO_ROOT / "data" / "processed" / "product_embeddings.npy"
+
+
+# Catalog is a snapshot of three sources scraped at different times. Depop is a
+# C2C marketplace -- individual listing URLs go 404 as sellers sell or delist
+# items. Vestiaire keeps sold-archive pages but they sometimes redirect to a
+# coming-soon page once a listing ages out. Zara is a retailer with stable
+# SKU URLs that almost never break.
+#
+# Rather than ship a UX where ~30 % of "go to product" taps land on a 404, we
+# rewrite Depop and Vestiaire URLs to point at that site's search page for the
+# product name. The user lands on a valid page that surfaces the original
+# item if it's still live and visually-similar items if it isn't. The
+# marketplace branding stays intact ("powered by Depop" still reads
+# correctly). Zara URLs are kept verbatim because retailer URLs are stable.
+_PRODUCT_SEARCH_TEMPLATES: dict[str, str] = {
+    "depop.com": "https://www.depop.com/search/?q={q}",
+    "vestiairecollective.com": "https://us.vestiairecollective.com/search/#!q={q}",
+}
+
+
+def _resolve_product_url(product_link: str, product_name: str) -> str:
+    """Return a URL the user can actually open.
+
+    For marketplace catalogs whose individual-listing URLs go stale, fall
+    back to a same-site search URL keyed off the product name. Retailer
+    URLs (Zara) are returned unchanged.
+
+    Returns ``product_link`` when the host isn't in our rewrite list, or
+    when we can't derive a search query.
+    """
+    if not product_link:
+        return product_link
+    host = urlparse(product_link).netloc.lower()
+    if not host:
+        return product_link
+
+    for marketplace, template in _PRODUCT_SEARCH_TEMPLATES.items():
+        if host.endswith(marketplace):
+            query = (product_name or "").strip()
+            if not query:
+                return product_link
+            return template.format(q=quote_plus(query))
+    return product_link
 
 
 @dataclass
@@ -62,7 +106,12 @@ class Product:
             "gender": self.gender,
             "price": self.price,
             "image_url": self.image_link,
-            "product_url": self.product_link,
+            # `product_url` is the safe-to-click URL (search fallback for
+            # marketplace items whose direct links may have gone stale).
+            # `product_url_raw` keeps the original snapshot URL for debugging
+            # / future re-scraping. Mobile reads `product_url`.
+            "product_url": _resolve_product_url(self.product_link, self.name),
+            "product_url_raw": self.product_link,
         }
         if score is not None:
             out["score"] = round(float(score), 4)

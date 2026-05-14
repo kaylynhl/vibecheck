@@ -103,6 +103,32 @@ def _map_vibes(top_vibes: Iterable[Any]) -> Iterable[dict[str, Any]]:
         }
 
 
+_SOURCE_BY_HOST: tuple[tuple[str, str], ...] = (
+    ("depop.com", "Depop"),
+    ("vestiairecollective.com", "Vestiaire"),
+    ("zara.com", "Zara"),
+)
+
+
+def _infer_source(raw: dict[str, Any]) -> str:
+    """Pick a marketplace label from whichever URL fields are available.
+    The catalog is a mix of Depop, Vestiaire, and Zara items.
+    """
+    explicit = raw.get("source")
+    if isinstance(explicit, str) and explicit:
+        return explicit
+
+    for candidate_field in ("product_url_raw", "product_url", "productUrl"):
+        url = raw.get(candidate_field)
+        if not isinstance(url, str) or not url:
+            continue
+        host = url.split("/")[2].lower() if "://" in url else ""
+        for needle, label in _SOURCE_BY_HOST:
+            if needle in host:
+                return label
+    return "Marketplace"
+
+
 def _map_items(items: list[dict[str, Any]]) -> Iterable[dict[str, Any]]:
     """Mobile ``Item``: { id, name, imageUrl, tags[], matchScore, category, price?, source? }.
 
@@ -130,7 +156,7 @@ def _map_items(items: list[dict[str, Any]]) -> Iterable[dict[str, Any]]:
             "matchScore": match_score,
             "category": mobile_category,
             "price": raw.get("price") or None,
-            "source": raw.get("source") or "Depop",
+            "source": _infer_source(raw),
             "productUrl": raw.get("product_url") or raw.get("productUrl"),
         }
 
