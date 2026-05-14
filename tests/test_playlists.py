@@ -170,6 +170,51 @@ def test_recommend_tracks_fetches_dedupes_and_returns_top_k(
     assert len(spotify.calls) >= 2  # at least the two non-empty queries
 
 
+def test_recommend_tracks_dedupes_same_song_different_ids(
+    stub_encoder: StubEncoder,
+) -> None:
+    """Spotify returns multiple IDs for the same logical song (album vs single
+    vs explicit/clean). The post-rerank dedupe must collapse them by
+    (title, artists) so the final playlist doesn't repeat the same track."""
+    payload = make_payload(
+        scene_type="outfit",
+        visual_summary="folk",
+        aesthetic_descriptors=["folk"],
+        vibe_query="folk",
+    )
+    spotify = StubSpotify(
+        results_by_query={
+            "folk": [
+                # Four different Spotify IDs, same title + artist.
+                make_raw_track("a1", "Casual", "Chappell Roan"),
+                make_raw_track("a2", "casual", "Chappell Roan"),  # case variant
+                make_raw_track("a3", "Casual", "chappell roan"),  # case variant
+                make_raw_track("a4", "Casual", "Chappell Roan"),  # exact dup
+                # A genuinely different "Casual" -- different artist.
+                make_raw_track("b1", "Casual", "Doja Cat"),
+                make_raw_track("c1", "Heather", "Conan Gray"),
+            ]
+        }
+    )
+
+    results = recommend_tracks(
+        payload,
+        top_k=10,
+        encoder=stub_encoder,
+        spotify=spotify,
+        use_query_expansion=False,
+    )
+
+    # Three distinct (title, artist) tuples after dedupe.
+    assert len(results) == 3
+    keys = {(r["name"].lower(), tuple(a.lower() for a in r["artists"])) for r in results}
+    assert keys == {
+        ("casual", ("chappell roan",)),
+        ("casual", ("doja cat",)),
+        ("heather", ("conan gray",)),
+    }
+
+
 def test_recommend_tracks_truncates_to_top_k(stub_encoder: StubEncoder) -> None:
     payload = make_payload(
         scene_type="outfit",

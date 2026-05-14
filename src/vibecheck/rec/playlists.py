@@ -239,7 +239,28 @@ def recommend_tracks(
         reddit_index=reddit_index,
         use_query_expansion=use_query_expansion,
     )
-    return [track.to_dict(score=score) for score, track in ranked[:top_k]]
+
+    # Second dedupe pass: Spotify's catalog often has multiple IDs for what
+    # is, for our purposes, the same song (album vs single, explicit vs
+    # clean, regional re-releases, "feat." variants, etc.). The first dedupe
+    # above only catches exact-ID collisions, which is why the same track
+    # by the same artist can appear 3-4 times in the final playlist. We
+    # collapse those by (lowercased title, sorted lowercased artists) here,
+    # *after* re-ranking, so we keep the highest-scoring variant.
+    deduped: list[tuple[float, Track]] = []
+    seen_keys: set[tuple[str, tuple[str, ...]]] = set()
+    for score, track in ranked:
+        title = (track.name or "").strip().lower()
+        artists = tuple(
+            sorted(a.strip().lower() for a in (track.artists or []) if a)
+        )
+        key = (title, artists)
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        deduped.append((score, track))
+
+    return [track.to_dict(score=score) for score, track in deduped[:top_k]]
 
 
 # Process-wide encoder singleton so repeated requests don't reload the model.
