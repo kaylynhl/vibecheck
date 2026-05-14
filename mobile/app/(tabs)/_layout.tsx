@@ -1,30 +1,44 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
+// Warm coffee-shop palette. Mirrors THEME in app/_layout.tsx and the
+// remapped tokens in tailwind.config.js.
+const COLORS = {
+  cream: "#F5EFE6",
+  beige: "#E8DDCB",
+  tan: "#D4C5B0",
+  espresso: "#2B1810",
+  caramel: "#8B6F47",
+  muted: "#8B6F47",
+};
+
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#6366f1",
-        tabBarInactiveTintColor: "#64748b",
+        tabBarActiveTintColor: COLORS.caramel,
+        tabBarInactiveTintColor: COLORS.muted,
         tabBarStyle: {
-          backgroundColor: "#1e293b",
-          borderTopColor: "#334155",
+          backgroundColor: COLORS.beige,
+          borderTopColor: COLORS.tan,
           borderTopWidth: 1,
           paddingBottom: 8,
           paddingTop: 8,
           height: 88,
         },
         tabBarLabelStyle: {
+          fontFamily: "Lora_600SemiBold",
           fontSize: 12,
           fontWeight: "600",
         },
         headerStyle: {
-          backgroundColor: "#1e293b",
+          backgroundColor: COLORS.beige,
         },
-        headerTintColor: "#fff",
+        headerTintColor: COLORS.espresso,
         headerTitleStyle: {
-          fontWeight: "bold",
+          fontFamily: "PlayfairDisplay_700Bold",
+          fontWeight: "700",
+          color: COLORS.espresso,
         },
       }}
     >

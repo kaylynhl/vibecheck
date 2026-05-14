@@ -46,10 +46,6 @@ let cachedUserId: string | null = null;
 WebBrowser.maybeCompleteAuthSession();
 
 function getRedirectUri(): string {
-  // makeRedirectUri returns a `vibecheck://oauth-callback` URI in standalone /
-  // dev-client builds, and an `exp://...` URL inside Expo Go. The latter must
-  // also be added to the Spotify dashboard as a separate redirect URI for the
-  // initial dev experience to work.
   return AuthSession.makeRedirectUri({
     scheme: "vibecheck",
     path: "oauth-callback",

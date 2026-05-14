@@ -163,11 +163,11 @@ export default function HomeScreen() {
         {selectedPhotos.length > 1 && (
           <View className="mb-6 bg-dark-800 rounded-xl p-4">
             <View className="flex-row items-center">
-              <View className="w-8 h-8 rounded-full bg-primary-500/20 items-center justify-center mr-3">
-                <Text className="text-primary-400">✨</Text>
+              <View className="w-8 h-8 rounded-full bg-primary-500 items-center justify-center mr-3">
+                <Text>✨</Text>
               </View>
               <View className="flex-1">
-                <Text className="text-white font-medium text-sm">
+                <Text className="text-dark-200 font-medium text-sm">
                   Multi-photo analysis
                 </Text>
                 <Text className="text-dark-400 text-xs">

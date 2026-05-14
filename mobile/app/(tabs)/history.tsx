@@ -55,7 +55,7 @@ function VibeHistoryCard({ vibeCheck, onPress }: VibeHistoryCardProps) {
         />
       ) : (
         <View className="w-24 h-24 bg-dark-700 items-center justify-center">
-          <Ionicons name="image" size={24} color="#64748b" />
+          <Ionicons name="image" size={24} color="#8B6F47" />
         </View>
       )}
 
@@ -64,9 +64,9 @@ function VibeHistoryCard({ vibeCheck, onPress }: VibeHistoryCardProps) {
           <Ionicons
             name={vibeCheck.mode === "room" ? "home" : "shirt"}
             size={12}
-            color="#6366f1"
+            color="#8B6F47"
           />
-          <Text className="text-primary-400 text-xs ml-1 capitalize">
+          <Text className="text-primary-700 text-xs ml-1 capitalize">
             {vibeCheck.mode}
           </Text>
           <Text className="text-dark-600 mx-2">·</Text>
@@ -75,19 +75,22 @@ function VibeHistoryCard({ vibeCheck, onPress }: VibeHistoryCardProps) {
           </Text>
         </View>
 
-        <Text className="text-white font-bold text-lg capitalize mb-1">
+        <Text
+          className="text-dark-200 text-lg capitalize mb-1"
+          style={{ fontFamily: "PlayfairDisplay_600SemiBold" }}
+        >
           {primaryVibe?.aesthetic || "Unknown"}
         </Text>
 
         <View className="flex-row items-center">
           <View className="flex-row items-center mr-3">
-            <Ionicons name="images" size={12} color="#64748b" />
+            <Ionicons name="images" size={12} color="#B89972" />
             <Text className="text-dark-400 text-xs ml-1">
               {vibeCheck.photos.length}
             </Text>
           </View>
           <View className="flex-row items-center">
-            <Ionicons name="pricetag" size={12} color="#64748b" />
+            <Ionicons name="pricetag" size={12} color="#B89972" />
             <Text className="text-dark-400 text-xs ml-1">
               {vibeCheck.tags.length} tags
             </Text>
@@ -96,7 +99,7 @@ function VibeHistoryCard({ vibeCheck, onPress }: VibeHistoryCardProps) {
       </View>
 
       <View className="justify-center pr-3">
-        <Ionicons name="chevron-forward" size={20} color="#64748b" />
+        <Ionicons name="chevron-forward" size={20} color="#8B6F47" />
       </View>
     </Pressable>
   );
@@ -113,9 +116,12 @@ export default function HistoryScreen() {
     return (
       <SafeAreaView className="flex-1 bg-dark-900 items-center justify-center px-8">
         <View className="w-20 h-20 rounded-full bg-dark-800 items-center justify-center mb-6">
-          <Ionicons name="time" size={40} color="#64748b" />
+          <Ionicons name="time" size={40} color="#8B6F47" />
         </View>
-        <Text className="text-white text-xl font-bold text-center mb-2">
+        <Text
+          className="text-dark-200 text-2xl text-center mb-2"
+          style={{ fontFamily: "PlayfairDisplay_700Bold" }}
+        >
           No Vibe Checks Yet
         </Text>
         <Text className="text-dark-400 text-center mb-8">

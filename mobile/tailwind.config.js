@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+
 module.exports = {
-  // Required for NativeWind on web: "media" blocks manual color scheme updates (see react-native-css-interop).
   darkMode: "class",
   content: [
     "./app/**/*.{js,jsx,ts,tsx}",
@@ -10,41 +10,54 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // VibeCheck brand colors
         primary: {
-          50: '#f0f4ff',
-          100: '#e0e9ff',
-          200: '#c7d6fe',
-          300: '#a4b8fc',
-          400: '#8093f8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
+          50: "#FBF4E8",
+          100: "#F5E6CC",
+          200: "#E5CBA0",
+          300: "#D1AC72",
+          400: "#B8904F",
+          500: "#8B6F47", // caramel accent (was indigo)
+          600: "#6F5538",
+          700: "#5A4429",
+          800: "#3D2914",
+          900: "#2B1810",
         },
+
+        // Reverse-mapped: high numbers used to be the *darkest* shades
+        // (backgrounds in a dark theme). They now map to the *lightest*
+        // shades (backgrounds in a light theme). The scale still reads
+        // "low = light text, high = dark surface", just inverted in
+        // brightness so component classnames Just Work.
         dark: {
-          50: '#f8fafc',
-          100: '#f1f5f9',
-          200: '#e2e8f0',
-          300: '#cbd5e1',
-          400: '#94a3b8',
-          500: '#64748b',
-          600: '#475569',
-          700: '#334155',
-          800: '#1e293b',
-          900: '#0f172a',
-          950: '#020617',
+          50: "#1F100B", // deepest espresso (was lightest gray)
+          100: "#2B1810",
+          200: "#3D2914",
+          300: "#5A4429", // body text (used on cream surfaces)
+          400: "#6F5538", // muted body
+          500: "#8B6F47", // tertiary text / placeholders
+          600: "#B89972", // hover borders
+          700: "#D4C5B0", // borders / dividers
+          800: "#E8DDCB", // card / chip background
+          900: "#F5EFE6", // main app background (cream)
+          950: "#FBF6EE", // even lighter surface
         },
+
         accent: {
-          pink: '#ec4899',
-          purple: '#a855f7',
-          teal: '#14b8a6',
-          orange: '#f97316',
+          pink: "#D08B7A",      // dusty rose
+          purple: "#C97B5D",    // terracotta (was deep purple)
+          teal: "#7A9B8A",      // sage
+          orange: "#D89060",    // warm amber
         },
       },
       fontFamily: {
-        sans: ['System'],
+        // Body text -- elegant readable serif. Loaded from
+        // @expo-google-fonts/lora in app/_layout.tsx.
+        sans: ["Lora_400Regular", "Georgia", "serif"],
+        body: ["Lora_400Regular", "serif"],
+        // Display headings -- high-contrast classic serif.
+        // Loaded from @expo-google-fonts/playfair-display.
+        display: ["PlayfairDisplay_700Bold", "Georgia", "serif"],
+        serif: ["PlayfairDisplay_600SemiBold", "Georgia", "serif"],
       },
     },
   },

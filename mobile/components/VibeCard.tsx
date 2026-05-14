@@ -14,7 +14,7 @@ export function VibeCard({ vibe, rank, isTop = false }: VibeCardProps) {
     <View
       className={`rounded-2xl p-4 ${
         isTop
-          ? "bg-gradient-to-r from-primary-600/30 to-accent-purple/30 border border-primary-500/50"
+          ? "bg-primary-500 border border-primary-600"
           : "bg-dark-800/80 border border-dark-700"
       }`}
     >
@@ -34,35 +34,42 @@ export function VibeCard({ vibe, rank, isTop = false }: VibeCardProps) {
             </Text>
           </View>
           <Text
-            className={`text-lg font-bold capitalize ${
+            className={`text-xl capitalize ${
               isTop ? "text-white" : "text-dark-200"
             }`}
+            style={{ fontFamily: "PlayfairDisplay_600SemiBold" }}
           >
             {vibe.aesthetic}
           </Text>
         </View>
         <Text
           className={`text-sm font-semibold ${
-            isTop ? "text-primary-300" : "text-dark-400"
+            isTop ? "text-white/85" : "text-dark-400"
           }`}
         >
           {confidencePercent}%
         </Text>
       </View>
 
-      <View className="h-2 bg-dark-700 rounded-full overflow-hidden mb-3">
+      <View
+        className={`h-2 rounded-full overflow-hidden mb-3 ${
+          isTop ? "bg-primary-700/40" : "bg-dark-700"
+        }`}
+      >
         <View
           className={`h-full rounded-full ${
-            isTop
-              ? "bg-gradient-to-r from-primary-500 to-accent-purple"
-              : "bg-dark-500"
+            isTop ? "bg-white" : "bg-primary-500"
           }`}
           style={{ width: `${confidencePercent}%` }}
         />
       </View>
 
       {vibe.description && (
-        <Text className="text-dark-400 text-sm leading-relaxed">
+        <Text
+          className={`text-sm leading-relaxed ${
+            isTop ? "text-white/85" : "text-dark-400"
+          }`}
+        >
           {vibe.description}
         </Text>
       )}

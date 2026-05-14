@@ -57,7 +57,7 @@ export default function VibeDetailScreen() {
   if (!vibeData) {
     return (
       <SafeAreaView className="flex-1 bg-dark-900 items-center justify-center">
-        <Ionicons name="alert-circle" size={48} color="#64748b" />
+        <Ionicons name="alert-circle" size={48} color="#8B6F47" />
         <Text className="text-dark-400 mt-4">Vibe check not found</Text>
         <Pressable
           onPress={() => router.back()}
@@ -118,9 +118,9 @@ export default function VibeDetailScreen() {
             <Ionicons
               name={vibeData.mode === "room" ? "home" : "shirt"}
               size={14}
-              color="#6366f1"
+              color="#8B6F47"
             />
-            <Text className="text-white text-sm font-medium ml-1.5 capitalize">
+            <Text className="text-dark-200 text-sm font-medium ml-1.5 capitalize">
               {vibeData.mode}
             </Text>
           </View>
@@ -157,10 +157,13 @@ export default function VibeDetailScreen() {
           )}
 
           <View className="bg-dark-800 rounded-2xl p-5 border border-dark-700 mb-6">
-            <Text className="text-xs text-primary-400 uppercase tracking-wide mb-2">
+            <Text className="text-xs text-primary-700 uppercase tracking-wide mb-2 font-semibold">
               Your Dominant Vibe
             </Text>
-            <Text className="text-white text-3xl font-bold capitalize mb-2">
+            <Text
+              className="text-dark-200 text-4xl capitalize mb-2"
+              style={{ fontFamily: "PlayfairDisplay_700Bold" }}
+            >
               {primaryVibe?.aesthetic}
             </Text>
             <Text className="text-dark-400 text-sm">
@@ -169,14 +172,20 @@ export default function VibeDetailScreen() {
           </View>
 
           <View className="mb-8">
-            <Text className="text-white font-bold text-lg mb-4">
+            <Text
+              className="text-dark-200 text-xl mb-4"
+              style={{ fontFamily: "PlayfairDisplay_600SemiBold" }}
+            >
               Aesthetic Breakdown
             </Text>
             <VibeList vibes={vibeData.vibes} />
           </View>
 
           <View className="mb-8">
-            <Text className="text-white font-bold text-lg mb-4">
+            <Text
+              className="text-dark-200 text-xl mb-4"
+              style={{ fontFamily: "PlayfairDisplay_600SemiBold" }}
+            >
               Visual Tags
             </Text>
             <View className="bg-dark-800 rounded-2xl p-4 border border-dark-700">
@@ -197,7 +206,10 @@ export default function VibeDetailScreen() {
         </View>
 
         <View className="px-4 mb-8">
-          <Text className="text-white font-bold text-lg mb-4">
+          <Text
+            className="text-dark-200 text-xl mb-4"
+            style={{ fontFamily: "PlayfairDisplay_600SemiBold" }}
+          >
             Your Vibe Playlist
           </Text>
           <PlaylistCard playlist={vibeData.playlistRecommendation} />
@@ -206,7 +218,10 @@ export default function VibeDetailScreen() {
         {!feedbackSubmitted && (
           <View className="px-4 mb-8">
             <View className="bg-dark-800 rounded-2xl p-5 border border-dark-700">
-              <Text className="text-white font-bold text-lg mb-2 text-center">
+              <Text
+                className="text-dark-200 text-xl mb-2 text-center"
+                style={{ fontFamily: "PlayfairDisplay_600SemiBold" }}
+              >
                 How'd we do?
               </Text>
               <Text className="text-dark-400 text-sm text-center mb-4">

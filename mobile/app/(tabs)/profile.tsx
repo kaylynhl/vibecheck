@@ -24,16 +24,16 @@ function SettingsItem({
       className="flex-row items-center py-4 active:opacity-70"
     >
       <View className="w-10 h-10 rounded-full bg-dark-700 items-center justify-center mr-4">
-        <Ionicons name={icon} size={20} color="#6366f1" />
+        <Ionicons name={icon} size={20} color="#8B6F47" />
       </View>
       <View className="flex-1">
-        <Text className="text-white font-medium">{title}</Text>
+        <Text className="text-dark-200 font-medium">{title}</Text>
         {subtitle && (
           <Text className="text-dark-400 text-sm mt-0.5">{subtitle}</Text>
         )}
       </View>
       {showArrow && (
-        <Ionicons name="chevron-forward" size={20} color="#64748b" />
+        <Ionicons name="chevron-forward" size={20} color="#8B6F47" />
       )}
     </Pressable>
   );
@@ -63,10 +63,15 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="items-center mb-8">
-          <View className="w-24 h-24 rounded-full bg-gradient-to-br from-primary-500 to-accent-purple items-center justify-center mb-4">
+          <View className="w-24 h-24 rounded-full bg-primary-500 items-center justify-center mb-4">
             <Ionicons name="person" size={48} color="white" />
           </View>
-          <Text className="text-white text-xl font-bold">VibeChecker</Text>
+          <Text
+            className="text-dark-200 text-2xl"
+            style={{ fontFamily: "PlayfairDisplay_700Bold" }}
+          >
+            VibeChecker
+          </Text>
           <Text className="text-dark-400 text-sm">
             {vibeHistory.length} vibe checks completed
           </Text>
@@ -89,11 +94,15 @@ export default function ProfileScreen() {
                           : "bg-dark-700"
                     }`}
                   >
-                    <Text className="text-white text-xs font-bold">
+                    <Text
+                      className={`text-xs font-bold ${
+                        index === 0 ? "text-white" : "text-dark-200"
+                      }`}
+                    >
                       {index + 1}
                     </Text>
                   </View>
-                  <Text className="text-white font-medium capitalize flex-1">
+                  <Text className="text-dark-200 font-medium capitalize flex-1">
                     {aesthetic}
                   </Text>
                   <Text className="text-dark-400 text-sm">

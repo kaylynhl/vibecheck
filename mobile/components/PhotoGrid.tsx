@@ -26,9 +26,9 @@ export function PhotoGrid({
       >
         <View className="items-center">
           <View className="w-16 h-16 rounded-full bg-dark-700 items-center justify-center mb-4">
-            <Ionicons name="camera" size={32} color="#6366f1" />
+            <Ionicons name="camera" size={32} color="#8B6F47" />
           </View>
-          <Text className="text-white font-semibold text-lg mb-1">
+          <Text className="text-dark-200 font-semibold text-lg mb-1">
             Add Photos
           </Text>
           <Text className="text-dark-400 text-sm text-center px-8">
@@ -65,14 +65,14 @@ export function PhotoGrid({
             {editable && onRemovePhoto && (
               <Pressable
                 onPress={() => onRemovePhoto(uri)}
-                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-dark-900/80 items-center justify-center active:bg-red-500"
+                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-dark-200/80 items-center justify-center active:bg-red-500"
               >
-                <Ionicons name="close" size={18} color="white" />
+                <Ionicons name="close" size={18} color="#F5EFE6" />
               </Pressable>
             )}
 
-            <View className="absolute bottom-2 left-2 bg-dark-900/80 px-2 py-1 rounded">
-              <Text className="text-white text-xs font-medium">
+            <View className="absolute bottom-2 left-2 bg-dark-200/80 px-2 py-1 rounded">
+              <Text className="text-[#F5EFE6] text-xs font-medium">
                 {index + 1}/{photos.length}
               </Text>
             </View>
@@ -85,7 +85,7 @@ export function PhotoGrid({
             className="items-center justify-center bg-dark-800 rounded-xl border-2 border-dashed border-dark-600 active:border-primary-500"
             style={tileStyle}
           >
-            <Ionicons name="add" size={32} color="#6366f1" />
+            <Ionicons name="add" size={32} color="#8B6F47" />
             <Text className="text-dark-400 text-xs mt-1">Add more</Text>
           </Pressable>
         )}

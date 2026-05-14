@@ -39,8 +39,8 @@ export function ItemCard({ item, onPress }: ItemCardProps) {
           className="w-full h-40"
           resizeMode="cover"
         />
-        <View className="absolute top-2 right-2 bg-dark-900/80 px-2 py-1 rounded-full">
-          <Text className="text-xs text-primary-400 font-semibold">
+        <View className="absolute top-2 right-2 bg-dark-200/85 px-2 py-1 rounded-full">
+          <Text className="text-xs text-[#F5EFE6] font-semibold">
             {matchPercent}% match
           </Text>
         </View>
@@ -48,7 +48,7 @@ export function ItemCard({ item, onPress }: ItemCardProps) {
 
       <View className="p-3">
         <Text
-          className="text-white font-semibold text-sm mb-1"
+          className="text-dark-200 font-semibold text-sm mb-1"
           numberOfLines={2}
         >
           {item.name}
@@ -56,7 +56,7 @@ export function ItemCard({ item, onPress }: ItemCardProps) {
 
         <View className="flex-row items-center justify-between">
           {item.price && (
-            <Text className="text-primary-400 font-bold text-sm">
+            <Text className="text-primary-700 font-bold text-sm">
               {item.price}
             </Text>
           )}
@@ -91,10 +91,15 @@ export function ItemList({
   return (
     <View>
       <View className="flex-row items-center justify-between mb-3 px-4">
-        <Text className="text-white font-bold text-lg">{title}</Text>
+        <Text
+          className="text-dark-200 text-xl"
+          style={{ fontFamily: "PlayfairDisplay_600SemiBold" }}
+        >
+          {title}
+        </Text>
         <Pressable className="flex-row items-center">
-          <Text className="text-primary-400 text-sm mr-1">See all</Text>
-          <Ionicons name="chevron-forward" size={16} color="#6366f1" />
+          <Text className="text-primary-500 text-sm mr-1">See all</Text>
+          <Ionicons name="chevron-forward" size={16} color="#8B6F47" />
         </Pressable>
       </View>
 

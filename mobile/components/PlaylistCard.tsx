@@ -73,12 +73,12 @@ function TrackRow({ track, index }: TrackRowProps) {
         />
       ) : (
         <View className="w-10 h-10 rounded bg-dark-700 mr-3 items-center justify-center">
-          <Ionicons name="musical-note" size={16} color="#64748b" />
+          <Ionicons name="musical-note" size={16} color="#8B6F47" />
         </View>
       )}
 
       <View className="flex-1">
-        <Text className="text-white font-medium text-sm" numberOfLines={1}>
+        <Text className="text-dark-200 font-medium text-sm" numberOfLines={1}>
           {track.name}
         </Text>
         <Text className="text-dark-400 text-xs" numberOfLines={1}>
@@ -97,7 +97,7 @@ function TrackRow({ track, index }: TrackRowProps) {
         hitSlop={8}
         className="ml-3 p-1"
       >
-        <Ionicons name="play-circle" size={24} color="#6366f1" />
+        <Ionicons name="play-circle" size={24} color="#8B6F47" />
       </Pressable>
     </Pressable>
   );
@@ -167,16 +167,20 @@ export function PlaylistCard({
             className="w-24 h-24 rounded-xl"
           />
         ) : (
-          <View className="w-24 h-24 rounded-xl bg-gradient-to-br from-primary-600 to-accent-purple items-center justify-center">
+          <View className="w-24 h-24 rounded-xl bg-primary-500 items-center justify-center">
             <Ionicons name="musical-notes" size={40} color="white" />
           </View>
         )}
 
         <View className="flex-1 ml-4 justify-center">
-          <Text className="text-xs text-primary-400 uppercase tracking-wide mb-1">
+          <Text className="text-xs text-primary-700 uppercase tracking-wide mb-1 font-semibold">
             Playlist for {playlist.aesthetic}
           </Text>
-          <Text className="text-white font-bold text-lg mb-1">
+          <Text
+            className="text-dark-200 text-xl mb-1"
+            style={{ fontFamily: "PlayfairDisplay_600SemiBold" }}
+            numberOfLines={2}
+          >
             {playlist.name}
           </Text>
           <Text className="text-dark-400 text-sm">
@@ -198,7 +202,7 @@ export function PlaylistCard({
               onPress={handleOpen}
               className="bg-dark-700 px-4 py-2 rounded-full flex-row items-center"
             >
-              <Ionicons name="open-outline" size={14} color="#64748b" />
+              <Ionicons name="open-outline" size={14} color="#3D2914" />
               <Text className="text-dark-300 font-medium text-sm ml-1">
                 Open
               </Text>

@@ -19,7 +19,7 @@ export function ModeToggle({ mode, onModeChange }: ModeToggleProps) {
         <Ionicons
           name="home"
           size={18}
-          color={mode === "room" ? "white" : "#64748b"}
+          color={mode === "room" ? "white" : "#8B6F47"}
         />
         <Text
           className={`ml-2 font-semibold ${
@@ -39,7 +39,7 @@ export function ModeToggle({ mode, onModeChange }: ModeToggleProps) {
         <Ionicons
           name="shirt"
           size={18}
-          color={mode === "outfit" ? "white" : "#64748b"}
+          color={mode === "outfit" ? "white" : "#8B6F47"}
         />
         <Text
           className={`ml-2 font-semibold ${

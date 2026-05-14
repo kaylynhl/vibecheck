@@ -28,7 +28,7 @@ export function AnalyzeButton({
       style={
         !isDisabled
           ? {
-              shadowColor: "#6366f1",
+              shadowColor: "#3D2914",
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.3,
               shadowRadius: 8,
@@ -50,7 +50,7 @@ export function AnalyzeButton({
             <Ionicons
               name="sparkles"
               size={20}
-              color={isDisabled ? "#64748b" : "white"}
+              color={isDisabled ? "#8B6F47" : "white"}
             />
           </View>
           <View>
