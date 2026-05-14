@@ -1,0 +1,17 @@
+
+*.jpg
+*.jpeg
+*.png
+*.heic
+*.heif
+*.webp
+*.bmp
+*.tiff
+*.gif
+
+# Cached embeddings / features from the ipynb demo file (run in Google Colab)
+features.npz
+labels.npz
+*.pt
+*.pth
+*.npy
