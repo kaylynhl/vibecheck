@@ -29,17 +29,46 @@ def _make_fake_result() -> VibeAnalysisResult:
     return VibeAnalysisResult(
         raw_description="A cozy cottagecore-leaning interior.",
         extracted_tags=[
-            ExtractedTag(category="palette", value="warm neutrals", confidence=0.9, evidence="warm neutrals"),
-            ExtractedTag(category="texture", value="woven", confidence=0.7, evidence="woven baskets"),
-            ExtractedTag(category="pattern", value="floral", confidence=0.6, evidence="floral patterns"),
+            ExtractedTag(
+                category="palette",
+                value="warm neutrals",
+                confidence=0.9,
+                evidence="warm neutrals",
+            ),
+            ExtractedTag(
+                category="texture",
+                value="woven",
+                confidence=0.7,
+                evidence="woven baskets",
+            ),
+            ExtractedTag(
+                category="pattern",
+                value="floral",
+                confidence=0.6,
+                evidence="floral patterns",
+            ),
         ],
         vibe_scores=[
-            VibeScore(vibe="cottagecore", score=0.78, matched_keywords=["floral"], description=""),
-            VibeScore(vibe="minimalist", score=0.12, matched_keywords=[], description=""),
+            VibeScore(
+                vibe="cottagecore",
+                score=0.78,
+                matched_keywords=["floral"],
+                description="",
+            ),
+            VibeScore(
+                vibe="minimalist", score=0.12, matched_keywords=[], description=""
+            ),
         ],
         top_vibes=[
-            VibeScore(vibe="cottagecore", score=0.78, matched_keywords=["floral"], description=""),
-            VibeScore(vibe="minimalist", score=0.12, matched_keywords=[], description=""),
+            VibeScore(
+                vibe="cottagecore",
+                score=0.78,
+                matched_keywords=["floral"],
+                description="",
+            ),
+            VibeScore(
+                vibe="minimalist", score=0.12, matched_keywords=[], description=""
+            ),
         ],
         confidence_notes=["test note"],
         debug=DebugInfo(
@@ -113,18 +142,18 @@ def _build_client(
         captured["kwargs"] = kwargs
         return fake_result
 
-    monkeypatch.setattr(
-        "vibecheck.server.app.analyze_images", fake_analyze_images
-    )
+    monkeypatch.setattr("vibecheck.server.app.analyze_images", fake_analyze_images)
     monkeypatch.setattr(
         server_storage,
         "DEFAULT_FEEDBACK_DB",
         tmp_path / "feedback.sqlite",
     )
+    monkeypatch.setenv("VIBECHECK_SKIP_PREWARM", "1")
     if not cover_art:
         monkeypatch.setenv("VIBECHECK_DISABLE_COVER_ART", "1")
         # cover_url_for_vibe is @lru_cache'd; clear so the env var takes effect.
         from vibecheck.rec.cover_art import cover_url_for_vibe
+
         cover_url_for_vibe.cache_clear()
 
     app = create_app()
@@ -162,7 +191,9 @@ def test_analyze_returns_mobile_shaped_vibe_check(
     response = client.post(
         "/api/analyze",
         data={"mode": "room"},
-        files={"photos": ("front.jpg", io.BytesIO(b"\xff\xd8\xff fake jpeg"), "image/jpeg")},
+        files={
+            "photos": ("front.jpg", io.BytesIO(b"\xff\xd8\xff fake jpeg"), "image/jpeg")
+        },
     )
 
     assert response.status_code == 200, response.text
@@ -179,7 +210,9 @@ def test_analyze_returns_mobile_shaped_vibe_check(
     }
     assert body["mode"] == "room"
     assert body["id"].startswith("vibe-")
-    assert all({"id", "category", "value", "confidence"} <= set(t) for t in body["tags"])
+    assert all(
+        {"id", "category", "value", "confidence"} <= set(t) for t in body["tags"]
+    )
     assert body["vibes"][0]["aesthetic"] == "cottagecore"
     assert 0.0 <= body["vibes"][0]["confidence"] <= 1.0
 
@@ -207,7 +240,9 @@ def test_analyze_uses_generated_cover_art_when_enabled(
     response = client.post(
         "/api/analyze",
         data={"mode": "room"},
-        files={"photos": ("front.jpg", io.BytesIO(b"\xff\xd8\xff fake jpeg"), "image/jpeg")},
+        files={
+            "photos": ("front.jpg", io.BytesIO(b"\xff\xd8\xff fake jpeg"), "image/jpeg")
+        },
     )
     assert response.status_code == 200, response.text
     cover = response.json()["playlistRecommendation"]["coverImage"]
@@ -255,8 +290,7 @@ def test_analyze_rejects_too_many_photos(
 ) -> None:
     client = _build_client(monkeypatch, tmp_path=tmp_path)
     files = [
-        ("photos", (f"p{i}.jpg", io.BytesIO(b"x" * 8), "image/jpeg"))
-        for i in range(7)
+        ("photos", (f"p{i}.jpg", io.BytesIO(b"x" * 8), "image/jpeg")) for i in range(7)
     ]
     response = client.post("/api/analyze", data={"mode": "room"}, files=files)
     assert response.status_code == 400

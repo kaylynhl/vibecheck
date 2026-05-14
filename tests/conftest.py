@@ -10,9 +10,9 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from vibecheck.errors import VisionAPIError, VisionOutputFormatError
-from vibecheck.schemas import VisionAnalysisPayload
-from helpers import make_payload
+from vibecheck.errors import VisionAPIError, VisionOutputFormatError  # noqa: E402
+from vibecheck.schemas import VisionAnalysisPayload  # noqa: E402
+from helpers import make_payload  # noqa: E402
 
 
 @pytest.fixture

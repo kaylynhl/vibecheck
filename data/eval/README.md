@@ -10,6 +10,30 @@ It is also used as a fixed held-out test set to compare:
 3. CLIP-ViT-B/32 linear probe (trained head, frozen backbone)
 4. CLIP-ViT-B/32 + LoRA (fine-tuned rank-8 adapters on the vision tower) **← ours**
 
+## Readiness check
+
+Before spending Groq credits or opening the Colab notebook, run:
+
+```bash
+python scripts/check_eval_dataset.py
+```
+
+The default gate is **8 photos per class**. For the healthier target from the
+handoff, use:
+
+```bash
+python scripts/check_eval_dataset.py --min-per-class 12
+```
+
+Once the check passes, cache the production Groq baseline:
+
+```bash
+python scripts/export_groq_baseline.py
+```
+
+This writes `data/eval/groq_predictions.json` with paths relative to this
+folder, so the same cache works after uploading `data/eval/` to Colab.
+
 ## Folder = label
 
 Every photo's label is its parent directory name. The 8 supported classes:

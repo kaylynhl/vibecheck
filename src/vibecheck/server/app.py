@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Literal
+from typing import AsyncIterator, Literal, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
@@ -35,7 +35,9 @@ from vibecheck.server.storage import record_feedback
 load_dotenv()
 
 logger = logging.getLogger("vibecheck.server")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+)
 
 
 # ---------- request / response schemas ----------
@@ -47,10 +49,10 @@ class FeedbackRequest(BaseModel):
     """Payload mirrors the mobile `submitFeedback` call site."""
 
     vibeCheckId: str = Field(..., description="ID returned by /api/analyze")
-    vibeMatch: int | None = Field(None, ge=1, le=5)
-    itemsHelpful: bool | None = None
-    playlistMatch: bool | None = None
-    notes: str | None = None
+    vibeMatch: Optional[int] = Field(None, ge=1, le=5)
+    itemsHelpful: Optional[bool] = None
+    playlistMatch: Optional[bool] = None
+    notes: Optional[str] = None
 
 
 class FeedbackResponse(BaseModel):
@@ -74,7 +76,7 @@ def create_app(
     with_playlist: bool = True,
     recommend_top_k: int = 10,
     playlist_top_k: int = 10,
-    cors_origins: list[str] | None = None,
+    cors_origins: Optional[list[str]] = None,
 ) -> FastAPI:
     """Construct the FastAPI app. Pulled out so tests can build their own."""
     state = {
@@ -93,6 +95,10 @@ def create_app(
         Failures here don't block boot -- the request handler will re-raise
         the same error path if/when it actually needs the encoder.
         """
+        if os.getenv("VIBECHECK_SKIP_PREWARM") == "1":
+            logger.info("pre-warm skipped by VIBECHECK_SKIP_PREWARM")
+            yield
+            return
         try:
             from vibecheck.rec.recommend import (
                 _shared_encoder,

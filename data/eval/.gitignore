@@ -10,6 +10,7 @@
 *.gif
 
 # Cached embeddings / features from the ipynb demo file (run in Google Colab)
+groq_predictions.json
 features.npz
 labels.npz
 *.pt

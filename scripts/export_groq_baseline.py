@@ -13,13 +13,17 @@ Usage:
 The script is idempotent and resumes: photos already in the cache are
 skipped. Delete `data/eval/groq_predictions.json` to force a full re-run.
 
-Output JSON shape (mapping absolute paths -> predicted class folder name):
+Output JSON shape (mapping paths relative to data/eval -> predicted class):
 
     {
-        "/Users/.../data/eval/minimalist/IMG_0001.jpg": "minimalist",
-        "/Users/.../data/eval/grunge/IMG_0042.jpg": "dark_academia",
+        "minimalist/IMG_0001.jpg": "minimalist",
+        "grunge/IMG_0042.jpg": "dark_academia",
         ...
     }
+
+Relative cache keys are intentional: the notebook can be run locally or in
+Colab after uploading data/eval/, and absolute laptop paths would not match
+inside /content.
 
 Predictions that don't match one of our 8 trained classes are stored as
 the model's raw label string -- the notebook treats anything outside the
@@ -62,6 +66,28 @@ def collect_photos() -> list[tuple[Path, str]]:
     return pairs
 
 
+def cache_key(path: Path) -> str:
+    """Stable cache key for local and Colab runs."""
+    return path.resolve().relative_to(DATA_ROOT.resolve()).as_posix()
+
+
+def cached_prediction(cache: dict[str, str], path: Path) -> str | None:
+    """Read both new relative keys and older absolute keys if present."""
+    return cache.get(cache_key(path)) or cache.get(str(path.resolve()))
+
+
+def normalize_cache(
+    cache: dict[str, str], photos: list[tuple[Path, str]]
+) -> dict[str, str]:
+    """Keep only current-dataset entries and write them with relative keys."""
+    normalized: dict[str, str] = {}
+    for path, _true_label in photos:
+        cached = cached_prediction(cache, path)
+        if cached is not None:
+            normalized[cache_key(path)] = cached
+    return normalized
+
+
 def load_cache() -> dict[str, str]:
     if CACHE_PATH.exists():
         return json.loads(CACHE_PATH.read_text())
@@ -86,20 +112,23 @@ def main() -> None:
             "Did you forget to copy your phone photos in?"
         )
 
-    cache = load_cache()
+    raw_cache = load_cache()
+    cache = normalize_cache(raw_cache, photos)
     total = len(photos)
     new_calls = 0
-    correct_in_cache = 0
 
     for i, (path, true_label) in enumerate(photos, start=1):
-        key = str(path.resolve())
-        if key in cache:
+        key = cache_key(path)
+        cached = cache.get(key)
+        if cached is not None:
             # Already done in a previous run.
-            if cache[key] == true_label:
-                correct_in_cache += 1
             continue
 
-        print(f"[{i:>3}/{total}] {path.relative_to(ROOT)} (true={true_label})", end=" ", flush=True)
+        print(
+            f"[{i:>3}/{total}] {path.relative_to(ROOT)} (true={true_label})",
+            end=" ",
+            flush=True,
+        )
         try:
             result = analyze_images([path], mode=None)
         except Exception as exc:  # network / API errors -- skip but keep going
@@ -119,8 +148,11 @@ def main() -> None:
         # Persist after every call so a mid-run interrupt doesn't lose work.
         save_cache(cache)
 
+    if cache != raw_cache:
+        save_cache(cache)
+
     # Final summary
-    correct = sum(1 for path, lbl in photos if cache.get(str(path.resolve())) == lbl)
+    correct = sum(1 for path, lbl in photos if cache.get(cache_key(path)) == lbl)
     accuracy = correct / total if total else 0.0
     print()
     print(f"Groq baseline complete: {correct}/{total} = {accuracy:.1%} top-1 accuracy")

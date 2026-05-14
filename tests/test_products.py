@@ -15,8 +15,6 @@ from __future__ import annotations
 
 from urllib.parse import parse_qs, urlparse
 
-import pytest
-
 from vibecheck.rec.products import Product, _resolve_product_url
 
 

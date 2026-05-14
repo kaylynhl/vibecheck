@@ -32,7 +32,6 @@ if str(SRC) not in sys.path:
 import numpy as np  # noqa: E402
 
 from vibecheck.schemas import ExtractedTag  # noqa: E402
-from vibecheck.tags.vocabulary import TAG_VOCABULARY  # noqa: E402
 from vibecheck.vibe.catalog import VIBE_PROFILES  # noqa: E402
 from vibecheck.vibe.learned import (  # noqa: E402
     DEFAULT_MODEL_PATH,
@@ -53,7 +52,9 @@ def decode_vector(b64: str, dim: int) -> np.ndarray:
     raw = base64.b64decode(b64.encode("ascii"))
     arr = np.frombuffer(raw, dtype=np.float32).copy()
     if arr.shape[0] != dim:
-        raise ValueError(f"Expected feature vector of length {dim}, got {arr.shape[0]}.")
+        raise ValueError(
+            f"Expected feature vector of length {dim}, got {arr.shape[0]}."
+        )
     return arr
 
 
@@ -69,7 +70,9 @@ def load_dataset(path: Path, feature_index):
     return np.vstack(X), np.array(y)
 
 
-def stratified_split(X: np.ndarray, y: np.ndarray, test_frac: float = 0.2, seed: int = 42):
+def stratified_split(
+    X: np.ndarray, y: np.ndarray, test_frac: float = 0.2, seed: int = 42
+):
     """Per-class shuffle then slice off ``test_frac`` of each class for test.
 
     Tiny classes (1 example) end up in train only; tests on those just contribute
@@ -113,7 +116,9 @@ def vector_to_extracted_tags(vec: np.ndarray, feature_index) -> list[ExtractedTa
     return tags
 
 
-def hand_weighted_predict_topk(X: np.ndarray, feature_index, k: int = 3) -> list[list[str]]:
+def hand_weighted_predict_topk(
+    X: np.ndarray, feature_index, k: int = 3
+) -> list[list[str]]:
     """Run the existing hand-weighted scorer and return top-K vibe names per row."""
     out: list[list[str]] = []
     for row in X:
@@ -123,7 +128,9 @@ def hand_weighted_predict_topk(X: np.ndarray, feature_index, k: int = 3) -> list
     return out
 
 
-def model_predict_topk(model, label_classes: list[str], X: np.ndarray, k: int = 3) -> list[list[str]]:
+def model_predict_topk(
+    model, label_classes: list[str], X: np.ndarray, k: int = 3
+) -> list[list[str]]:
     """Run a fitted classifier and return top-K vibe names per row."""
     probs = model.predict_proba(X)
     order = np.argsort(-probs, axis=1)

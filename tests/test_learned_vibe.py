@@ -12,7 +12,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from vibecheck.errors import VibecheckError
 from vibecheck.schemas import ExtractedTag
 from vibecheck.vibe.learned import (
     LearnedVibeBundle,
@@ -40,7 +39,9 @@ def test_build_feature_index_is_stable_and_ordered() -> None:
 def test_feature_vector_packs_tag_confidences_at_correct_indices() -> None:
     feature_index = build_feature_index()
     tags = [
-        ExtractedTag(category="palette", value="warm neutrals", confidence=0.9, evidence=""),
+        ExtractedTag(
+            category="palette", value="warm neutrals", confidence=0.9, evidence=""
+        ),
         ExtractedTag(category="material", value="leather", confidence=0.7, evidence=""),
     ]
 
@@ -57,8 +58,12 @@ def test_feature_vector_packs_tag_confidences_at_correct_indices() -> None:
 def test_feature_vector_dedupes_to_max_confidence() -> None:
     feature_index = build_feature_index()
     tags = [
-        ExtractedTag(category="palette", value="warm neutrals", confidence=0.5, evidence=""),
-        ExtractedTag(category="palette", value="warm neutrals", confidence=0.9, evidence=""),
+        ExtractedTag(
+            category="palette", value="warm neutrals", confidence=0.5, evidence=""
+        ),
+        ExtractedTag(
+            category="palette", value="warm neutrals", confidence=0.9, evidence=""
+        ),
     ]
 
     vec = feature_vector(tags, feature_index)
@@ -179,7 +184,9 @@ def test_learned_classifier_outperforms_hand_weighted_on_held_out_feature() -> N
     """
     bundle = _tiny_bundle()
     grunge_tags = [
-        ExtractedTag(category="texture", value="distressed", confidence=0.9, evidence=""),
+        ExtractedTag(
+            category="texture", value="distressed", confidence=0.9, evidence=""
+        ),
     ]
 
     learned_scores, _ = score_vibes_learned(grunge_tags, bundle)

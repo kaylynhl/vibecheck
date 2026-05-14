@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from vibecheck.errors import VisionAPIError, VisionOutputFormatError
+from vibecheck.errors import VisionAPIError
 from vibecheck.pipeline import analyze_images, analyze_images_to_dict
 from helpers import FailingVisionClient, StubVisionClient, make_payload
 
@@ -53,11 +53,18 @@ def test_analyze_images_handles_unmatched_description_gracefully() -> None:
     assert result.extracted_tags == []
     assert result.vibe_scores
     assert result.top_vibes
-    assert any("No normalized tags were extracted" in note for note in result.confidence_notes)
-    assert any("No normalized tags were extracted" in warning for warning in result.debug.warnings)
+    assert any(
+        "No normalized tags were extracted" in note for note in result.confidence_notes
+    )
+    assert any(
+        "No normalized tags were extracted" in warning
+        for warning in result.debug.warnings
+    )
 
 
-def test_analyze_images_uses_vibe_query_and_structured_fields_for_tag_extraction() -> None:
+def test_analyze_images_uses_vibe_query_and_structured_fields_for_tag_extraction() -> (
+    None
+):
     client = StubVisionClient(
         make_payload(
             scene_type="outfit",
@@ -72,7 +79,12 @@ def test_analyze_images_uses_vibe_query_and_structured_fields_for_tag_extraction
 
     result = analyze_images([b"\xff\xd8\xfffake"], mode="outfit", client=client)
 
-    assert {tag.value for tag in result.extracted_tags} >= {"cream", "smooth", "solid", "fitted"}
+    assert {tag.value for tag in result.extracted_tags} >= {
+        "cream",
+        "smooth",
+        "solid",
+        "fitted",
+    }
 
 
 def test_analyze_images_adds_scene_mode_mismatch_note(room_payload) -> None:
@@ -84,7 +96,9 @@ def test_analyze_images_adds_scene_mode_mismatch_note(room_payload) -> None:
     assert any("did not match" in warning for warning in result.debug.warnings)
 
 
-def test_analyze_images_handles_malformed_vision_output_gracefully(malformed_output_error) -> None:
+def test_analyze_images_handles_malformed_vision_output_gracefully(
+    malformed_output_error,
+) -> None:
     client = FailingVisionClient(malformed_output_error)
 
     result = analyze_images([b"\xff\xd8\xfffake"], mode="room", client=client)
@@ -98,7 +112,9 @@ def test_analyze_images_handles_malformed_vision_output_gracefully(malformed_out
     assert any("malformed or invalid" in note for note in result.confidence_notes)
 
 
-def test_analyze_images_does_not_swallow_provider_failures(provider_failure_error) -> None:
+def test_analyze_images_does_not_swallow_provider_failures(
+    provider_failure_error,
+) -> None:
     client = FailingVisionClient(provider_failure_error)
 
     with pytest.raises(VisionAPIError):

@@ -8,13 +8,15 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from vibecheck.errors import ConfigurationError, VibecheckError
-from vibecheck.pipeline import analyze_images_to_dict
+from vibecheck.errors import ConfigurationError, VibecheckError  # noqa: E402
+from vibecheck.pipeline import analyze_images_to_dict  # noqa: E402
 
 
 def main() -> int:
     """Run the local CLI demo for the image-to-vibe pipeline."""
-    parser = argparse.ArgumentParser(description="Run the vibecheck image analysis pipeline.")
+    parser = argparse.ArgumentParser(
+        description="Run the vibecheck image analysis pipeline."
+    )
     parser.add_argument(
         "--img",
         action="append",
@@ -92,6 +94,7 @@ def main() -> int:
 
     print(json.dumps(result, indent=2))
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

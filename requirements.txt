@@ -25,7 +25,10 @@ torchvision
 transformers
 sentence-transformers
 open-clip-torch
+peft
 faiss-cpu
+pillow-heif
+seaborn
 
 # ---------- Data + labeling utilities ----------
 python-dotenv

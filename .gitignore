@@ -16,6 +16,7 @@ __pycache__/
 dist/
 build/
 .pytest_cache/
+.coverage
 .ruff_cache/
 .mypy_cache/
 
@@ -63,3 +64,4 @@ notes/
 TODO.md
 scratch/
 PLAN.md
+HANDOFF.md

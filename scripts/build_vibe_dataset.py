@@ -34,7 +34,6 @@ import numpy as np  # noqa: E402
 
 from vibecheck.errors import TagExtractionError  # noqa: E402
 from vibecheck.tags.extract import extract_structured_tags  # noqa: E402
-from vibecheck.vibe.catalog import VIBE_PROFILES  # noqa: E402
 
 
 DEFAULT_CORPUS = ROOT / "reddit" / "filtered_reddit_texts.csv"
@@ -90,7 +89,9 @@ def vibe_match_patterns() -> list[tuple[str, re.Pattern[str]]]:
     ]
 
 
-def find_first_vibe(text: str, patterns: list[tuple[str, re.Pattern[str]]]) -> str | None:
+def find_first_vibe(
+    text: str, patterns: list[tuple[str, re.Pattern[str]]]
+) -> str | None:
     """Return the longest vibe name whose pattern matches ``text``, else None."""
     for name, pattern in patterns:
         if pattern.search(text):
@@ -148,7 +149,9 @@ def main() -> int:
         default=None,
         help="Cap rows scanned (useful for quick iteration).",
     )
-    parser.add_argument("--rebuild", action="store_true", help="Overwrite existing output.")
+    parser.add_argument(
+        "--rebuild", action="store_true", help="Overwrite existing output."
+    )
     args = parser.parse_args()
 
     if not args.corpus.exists():

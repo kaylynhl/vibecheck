@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
 import pytest
 
 from vibecheck.errors import ConfigurationError
@@ -207,7 +206,9 @@ def test_recommend_tracks_dedupes_same_song_different_ids(
 
     # Three distinct (title, artist) tuples after dedupe.
     assert len(results) == 3
-    keys = {(r["name"].lower(), tuple(a.lower() for a in r["artists"])) for r in results}
+    keys = {
+        (r["name"].lower(), tuple(a.lower() for a in r["artists"])) for r in results
+    }
     assert keys == {
         ("casual", ("chappell roan",)),
         ("casual", ("doja cat",)),
@@ -229,7 +230,11 @@ def test_recommend_tracks_truncates_to_top_k(stub_encoder: StubEncoder) -> None:
     )
 
     results = recommend_tracks(
-        payload, top_k=4, encoder=stub_encoder, spotify=spotify, use_query_expansion=False
+        payload,
+        top_k=4,
+        encoder=stub_encoder,
+        spotify=spotify,
+        use_query_expansion=False,
     )
 
     assert len(results) == 4
@@ -241,9 +246,7 @@ def test_recommend_tracks_returns_empty_for_empty_payload(
     payload = make_payload(scene_type="unclear", visual_summary="", vibe_query="")
     spotify = StubSpotify(results_by_query={})
 
-    results = recommend_tracks(
-        payload, top_k=5, encoder=stub_encoder, spotify=spotify
-    )
+    results = recommend_tracks(payload, top_k=5, encoder=stub_encoder, spotify=spotify)
 
     assert results == []
     assert spotify.calls == []  # never reached Spotify
@@ -258,9 +261,7 @@ def test_recommend_tracks_handles_no_search_results(stub_encoder: StubEncoder) -
     )
     spotify = StubSpotify(results_by_query={})
 
-    results = recommend_tracks(
-        payload, top_k=5, encoder=stub_encoder, spotify=spotify
-    )
+    results = recommend_tracks(payload, top_k=5, encoder=stub_encoder, spotify=spotify)
 
     assert results == []
 
@@ -325,7 +326,9 @@ def test_recommend_tracks_passes_query_through_encoder(
 # ---- Spotify client behavior under failure ----------------------------------
 
 
-def test_spotify_client_raises_without_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_spotify_client_raises_without_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("SPOTIFY_CLIENT_ID", raising=False)
     monkeypatch.delenv("SPOTIFY_CLIENT_SECRET", raising=False)
     client = SpotifyClient()
