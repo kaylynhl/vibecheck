@@ -69,3 +69,5 @@ HANDOFF.md
 # --- raw files ---
 data/clothing_raw/
 data/rooms_raw/
+data/eval/outfits
+data/eval/rooms
