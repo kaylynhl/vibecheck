@@ -1,21 +1,26 @@
 """Vibe-to-playlist recommendation: generate a playlist of real Spotify tracks
 for an inferred vibe.
 
-We can no longer use Spotify's ``/v1/recommendations`` endpoint (deprecated
-for new developer apps as of Nov 27, 2024), so the pipeline is:
+The catalog is a static 1.16M-track Kaggle dataset (the live Spotify
+``/v1/recommendations`` endpoint was deprecated for new apps on Nov 27 2024
+and ``/v1/search`` clamps ``limit`` to 10 on Client Credentials tokens, so
+the live API is no longer a viable backbone for a real recommender). The
+pipeline is:
 
-    photo -> vibe payload -> N search queries -> Spotify /search?type=track
-        -> dedupe pool -> fashion-bert re-rank against the expanded vibe
-        query -> top-K tracks returned to the caller
+    photo -> vibe payload -> N keyword queries -> local catalog search
+        -> dedupe pool -> fashion-bert *text* re-rank against the expanded
+        vibe query -> audio-feature *re-rank* against the aesthetic's
+        hand-crafted audio profile (with visual-tag nudges from the image)
+        -> top-K tracks returned to the caller
 
-Spotify is the *catalog*; our fashion-bert encoder is the *ranker*. This
-keeps the "our model picks the songs" claim intact for the writeup while
-working around the API constraint.
+The catalog and audio features come from the Kaggle CSV; our FashionBERT
+encoder remains the primary ranker. The audio re-rank is a secondary
+signal that biases the order toward tracks that *acoustically* match the
+predicted aesthetic, not just textually.
 
 The ``recommend_tracks`` entry point is intended to be called from a
-long-running backend process (the FastAPI server in Step 8). The Spotify
-client caches its access token in-process so we only authenticate once
-per hour, not once per request.
+long-running backend process (the FastAPI server). The local catalog is
+loaded into memory once on first call and reused thereafter.
 """
 
 from __future__ import annotations
@@ -29,17 +34,28 @@ import numpy as np
 from vibecheck.errors import VibecheckError
 from vibecheck.rec.encoder import FashionBertEncoder, l2_normalize
 from vibecheck.rec.expansion import expand_query
+from vibecheck.rec.local_catalog import LocalCatalogClient, get_default_local_client
 from vibecheck.rec.recommend import build_query_string
-from vibecheck.rec.spotify_client import SpotifyClient, get_default_client
+from vibecheck.rec.spotify_audio import audio_score
 from vibecheck.rec.text_index import RedditTextIndex
+from vibecheck.schemas import ExtractedTag
 
 
 MAX_QUERIES_PER_REQUEST = 8
-# Spotify's /v1/search rejects limit > 10 with HTTP 400 "Invalid limit" when
-# called with a new-app Client Credentials token, despite the docs claiming
-# the range is 0-50. We cap at 10 and run more queries to compensate.
-DEFAULT_RESULTS_PER_QUERY = 10
-SPOTIFY_MAX_LIMIT = 10
+# Local catalog has no rate limit or per-query cap, so we widen the pool
+# per query. The text + audio re-rankers downstream can absorb a larger
+# candidate set without latency issues.
+DEFAULT_RESULTS_PER_QUERY = 50
+# Audio-feature candidate pool size: aesthetic labels like "dark academia"
+# rarely appear in track metadata, so keyword search often returns very few
+# matches. We backfill the candidate pool with the top tracks by audio
+# similarity over the entire catalog so the re-rankers always have material.
+DEFAULT_AUDIO_POOL_SIZE = 200
+# Weight applied to the audio-feature similarity when combining with the
+# FashionBERT text similarity: final_score = text + AUDIO_LAMBDA * audio.
+# Text dominates by design (it carries more semantic signal); audio is a
+# tie-breaker that biases toward acoustically appropriate tracks.
+DEFAULT_AUDIO_LAMBDA = 0.3
 
 
 @dataclass
@@ -54,16 +70,24 @@ class Track:
     preview_url: str | None
     spotify_url: str | None
     duration_ms: int | None
+    audio_features: dict[str, float] | None = None
+    genre: str | None = None
 
     def encode_text(self) -> str:
         """Text used to compute this track's fashion-bert embedding.
 
-        We feed ``"<title> - <artist>"`` because Spotify search relevance is
-        dominated by track title, and artist names supply a useful extra
-        signal when multiple covers / versions share a title.
+        We feed ``"<title> - <artist> (<genre>)"`` (genre only when known).
+        Title + artist alone is not enough to separate, say, a grunge track
+        from an EDM track when both happen to have similar energy / loudness
+        / acousticness -- which is exactly the failure case the audio-feature
+        candidate filter produces. Adding the genre token gives the FashionBERT
+        re-ranker a real lever to push the right tracks up.
         """
         artist = ", ".join(self.artists) if self.artists else ""
-        return f"{self.name} - {artist}".strip(" -")
+        base = f"{self.name} - {artist}".strip(" -")
+        if self.genre:
+            return f"{base} ({self.genre})"
+        return base
 
     def to_dict(self, score: float | None = None) -> dict[str, Any]:
         out: dict[str, Any] = {
@@ -76,19 +100,36 @@ class Track:
             "spotify_url": self.spotify_url,
             "duration_ms": self.duration_ms,
         }
+        if self.audio_features:
+            out["audio_features"] = dict(self.audio_features)
+        if self.genre:
+            out["genre"] = self.genre
         if score is not None:
             out["score"] = round(float(score), 4)
         return out
 
 
 def normalize_track(raw: dict[str, Any]) -> Track | None:
-    """Map a raw Spotify track object to a Track, dropping malformed entries."""
+    """Map a raw Spotify-shaped track object to a Track, dropping malformed entries.
+
+    Accepts both real Spotify Web API JSON and the dicts returned by
+    :class:`vibecheck.rec.local_catalog.LocalCatalogClient`. The local
+    client adds an extra ``audio_features`` key that we pull through; for
+    real Spotify responses that field is simply absent and we leave
+    ``Track.audio_features`` as None.
+    """
     if not isinstance(raw, dict) or not raw.get("id") or not raw.get("name"):
         return None
     album = raw.get("album") or {}
     images = album.get("images") or []
     external = raw.get("external_urls") or {}
     artists = [a.get("name") for a in (raw.get("artists") or []) if a and a.get("name")]
+    audio = raw.get("audio_features")
+    if audio is not None and not isinstance(audio, dict):
+        audio = None
+    genre = raw.get("genre")
+    if genre is not None and not isinstance(genre, str):
+        genre = None
     return Track(
         spotify_id=raw["id"],
         name=raw["name"],
@@ -98,6 +139,8 @@ def normalize_track(raw: dict[str, Any]) -> Track | None:
         preview_url=raw.get("preview_url"),
         spotify_url=external.get("spotify"),
         duration_ms=raw.get("duration_ms"),
+        audio_features=audio,
+        genre=genre or None,
     )
 
 
@@ -171,17 +214,53 @@ def _rerank_with_encoder(
     return pairs
 
 
+def _top_aesthetic(payload) -> str:
+    """Pick the single aesthetic to use for audio profile lookup."""
+    descriptors = getattr(payload, "aesthetic_descriptors", None) or []
+    for d in descriptors:
+        if d and d.strip():
+            return d
+    return ""
+
+
+def _combine_text_and_audio(
+    text_ranked: list[tuple[float, Track]],
+    *,
+    aesthetic: str,
+    image_tags: Iterable[ExtractedTag] | None,
+    audio_lambda: float,
+) -> list[tuple[float, Track]]:
+    """Add an audio-feature similarity to each text score, then re-sort.
+
+    The combined score is ``text + audio_lambda * audio``. Tracks without
+    audio features (e.g. when the catalog client doesn't supply them) get
+    ``audio = 0``, so they fall back to text-only behaviour cleanly.
+    """
+    if audio_lambda <= 0 or not aesthetic:
+        return text_ranked
+    tags = list(image_tags) if image_tags is not None else None
+    combined: list[tuple[float, Track]] = []
+    for text_s, track in text_ranked:
+        a = audio_score(track.audio_features, aesthetic, tags=tags)
+        combined.append((text_s + audio_lambda * a, track))
+    combined.sort(key=lambda kv: -kv[0])
+    return combined
+
+
 def recommend_tracks(
     payload,
     *,
     top_k: int = 20,
     results_per_query: int = DEFAULT_RESULTS_PER_QUERY,
+    audio_pool_size: int = DEFAULT_AUDIO_POOL_SIZE,
     encoder: FashionBertEncoder | None = None,
-    spotify: SpotifyClient | None = None,
+    catalog: LocalCatalogClient | None = None,
     reddit_index: RedditTextIndex | None = None,
     use_query_expansion: bool = True,
     market: str | None = None,
     queries: Iterable[str] | None = None,
+    image_tags: Iterable[ExtractedTag] | None = None,
+    audio_lambda: float = DEFAULT_AUDIO_LAMBDA,
 ) -> list[dict[str, Any]]:
     """Generate a playlist of real Spotify tracks matching the vibe payload.
 
@@ -189,34 +268,51 @@ def recommend_tracks(
         payload: Vision payload from ``analyze_images``. Used to build search
             queries and the re-ranking query.
         top_k: Number of tracks to return.
-        results_per_query: How many tracks to ask Spotify for per query
-            (max 50). Higher widens the candidate pool we re-rank.
+        results_per_query: Per-query candidate pool size from the catalog.
+            Higher widens the pool the re-rankers see.
         encoder: Optional fashion-bert encoder. Falls back to a process-wide
             singleton if omitted.
-        spotify: Optional Spotify client. Falls back to a process-wide
-            singleton (which reads credentials from env on first use).
+        catalog: Optional catalog client. Falls back to the process-wide
+            local catalog (``vibecheck.rec.local_catalog``). Any object with
+            a ``search_tracks(query, *, limit, market)`` method that returns
+            Spotify-shaped dicts works -- this is how tests inject stubs and
+            how live-Spotify calls can still be plugged in.
         reddit_index: Optional Reddit FAISS index. When provided, the
             re-ranking query is expanded the same way as item retrieval.
         use_query_expansion: Toggle for the above. Defaults to True.
-        market: Optional ISO-3166-1 market code for Spotify search.
+        market: Optional ISO-3166-1 market code (ignored by the local catalog).
         queries: Optional override; if passed, we skip ``build_search_queries``.
+        image_tags: Optional structured tags extracted from the source image.
+            Used to nudge the audio profile (see
+            ``vibecheck.rec.spotify_audio.VISUAL_TAG_NUDGES``). When omitted,
+            the unmodified base profile is used.
+        audio_lambda: Weight on the audio similarity in the combined re-rank.
+            Set to ``0.0`` to disable the audio re-rank (text-only ablation).
 
     Returns:
         A list of track dicts (see ``Track.to_dict``) ordered by descending
-        fashion-bert similarity to the (optionally expanded) vibe query.
-        Empty list on any failure -- the caller (pipeline) wraps this in a
-        try/except and degrades gracefully.
+        combined text + audio similarity to the vibe. Empty list on any
+        failure -- the caller (pipeline) wraps this in a try/except and
+        degrades gracefully.
     """
     search_queries = list(queries) if queries is not None else build_search_queries(payload)
-    if not search_queries:
+    catalog = catalog or get_default_local_client()
+    top_aesthetic = _top_aesthetic(payload)
+
+    # If neither candidate generator can produce anything (empty payload + no
+    # recognised aesthetic), short-circuit so we don't load the catalog for
+    # no reason.
+    if not search_queries and not top_aesthetic:
         return []
 
-    spotify = spotify or get_default_client()
-
     seen: dict[str, Track] = {}
+
+    # 1. Keyword search: cheap, narrow, and hit-or-miss against the catalog.
+    #    Aesthetic vocab terms (e.g. "dark academia") often return zero rows;
+    #    generic terms (e.g. "warm") return many. We take what we can get.
     for query in search_queries:
         try:
-            raw_items = spotify.search_tracks(
+            raw_items = catalog.search_tracks(
                 query, limit=results_per_query, market=market
             )
         except VibecheckError:
@@ -228,11 +324,30 @@ def recommend_tracks(
             if track and track.spotify_id not in seen:
                 seen[track.spotify_id] = track
 
+    # 2. Audio-feature filter: backfills the candidate pool with tracks that
+    #    acoustically match the predicted aesthetic, so the playlist still
+    #    has material to re-rank when keyword search misses. This is what
+    #    makes the swap from Spotify's learned search to a literal catalog
+    #    actually work.
+    if top_aesthetic and audio_pool_size > 0 and hasattr(catalog, "search_by_aesthetic"):
+        try:
+            audio_pool = catalog.search_by_aesthetic(
+                top_aesthetic,
+                limit=audio_pool_size,
+                image_tags=image_tags,
+            )
+        except Exception:  # noqa: BLE001 - keep the pipeline alive on filter bugs
+            audio_pool = []
+        for raw in audio_pool:
+            track = normalize_track(raw)
+            if track and track.spotify_id not in seen:
+                seen[track.spotify_id] = track
+
     if not seen:
         return []
 
     encoder = encoder or _shared_encoder()
-    ranked = _rerank_with_encoder(
+    text_ranked = _rerank_with_encoder(
         list(seen.values()),
         payload,
         encoder=encoder,
@@ -240,7 +355,14 @@ def recommend_tracks(
         use_query_expansion=use_query_expansion,
     )
 
-    # Second dedupe pass: Spotify's catalog often has multiple IDs for what
+    ranked = _combine_text_and_audio(
+        text_ranked,
+        aesthetic=top_aesthetic,
+        image_tags=image_tags,
+        audio_lambda=audio_lambda,
+    )
+
+    # Second dedupe pass: the catalog often has multiple IDs for what
     # is, for our purposes, the same song (album vs single, explicit vs
     # clean, regional re-releases, "feat." variants, etc.). The first dedupe
     # above only catches exact-ID collisions, which is why the same track

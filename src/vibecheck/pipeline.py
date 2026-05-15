@@ -198,6 +198,7 @@ def analyze_images(
             playlist_recommendations = recommend_tracks(
                 vision_payload,
                 top_k=playlist_top_k,
+                image_tags=extracted_tags,
             )
         except Exception as exc:
             warnings.append(f"Playlist recommendation failed: {exc}")
