@@ -28,6 +28,26 @@ EXPECTED_CLASSES = (
     "scandinavian",
     "mid_century_modern",
     "japandi",
+    "y2k", 
+    "indie_sleaze", 
+    "soft_girl", 
+    "clean_girl", 
+    "old_money", 
+    "quiet_luxury", 
+    "bohemian", 
+    "cottagecore_dark",
+    "streetwear", 
+    "hypebeast", 
+    "art_hoe",
+    "normcore", 
+    "e_girl", 
+    "coquette",
+    "twee", 
+    "goblincore", 
+    "vaporwave", 
+    "indie_folk", 
+    "retro_70s", 
+    "lo_fi"
 )
 IMG_EXTS = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp"}
 

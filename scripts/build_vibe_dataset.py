@@ -68,6 +68,18 @@ VIBE_ALIASES: dict[str, tuple[str, ...]] = {
     "industrial": ("industrial style", "industrial decor", "industrial design"),
     "maximalist": ("maximalist", "maximalism"),
     "japandi": ("japandi",),
+    "quiet luxury":      ("quiet luxury", "stealth wealth", "understated luxury", "old luxury"),
+    "indie folk":        ("indie folk", "folk aesthetic", "folkcore", "acoustic aesthetic"),
+    "cottagecore dark":  ("dark cottagecore", "witch cottage", "gothic cottagecore", "dark folk"),
+    "vaporwave":         ("vaporwave", "synthwave", "retrowave", "aestheticwave", "90s nostalgia"),
+    "lo fi":             ("lo fi", "lofi", "lo-fi aesthetic", "chill aesthetic", "study aesthetic"),
+    "retro 70s":         ("70s aesthetic", "retro 70s", "seventies style", "disco era", "boho retro"),
+    "art hoe":           ("art hoe", "art aesthetic", "museum aesthetic", "art student"),
+    "normcore":          ("normcore", "norm core", "anti fashion", "basic aesthetic"),
+    "coquette":          ("coquette", "dollette", "balletcore", "bow aesthetic", "feminine aesthetic"),
+    "twee":              ("twee", "twee aesthetic", "quirky cute", "zooey deschanel aesthetic"),
+    "e girl":            ("e girl", "egirl", "e-girl", "alt girl", "internet girl"),
+    "hypebeast":         ("hypebeast", "sneakerhead", "streetwear luxury", "hype aesthetic"),
 }
 
 
