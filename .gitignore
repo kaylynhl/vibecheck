@@ -43,10 +43,14 @@ logs/
 
 # --- Models / artifacts ---
 checkpoints/
-models/
+models/*
 *.pt
 *.pth
 *.onnx
+
+# Production CLIP-LoRA artifacts ARE committed (they're small, ~3 MB)
+!models/clip_lora/
+!models/clip_lora/**
 
 # --- Audio ---
 *.wav

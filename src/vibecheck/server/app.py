@@ -73,16 +73,26 @@ def create_app(
     *,
     use_selection: bool = True,
     use_learned_classifier: bool = True,
+    use_clip_classifier: Optional[bool] = None,
     with_playlist: bool = True,
     recommend_top_k: int = 10,
     playlist_top_k: int = 10,
     cors_origins: Optional[list[str]] = None,
 ) -> FastAPI:
     """Construct the FastAPI app. Pulled out so tests can build their own."""
+    try:
+        from vibecheck.vibe.clip_lora import get_default_classifier
+
+        clip_available = get_default_classifier().is_available
+    except Exception:
+        clip_available = False
+
     state = {
         "prewarmed": False,
         "use_selection": use_selection,
         "use_learned_classifier": use_learned_classifier,
+        "use_clip_classifier": use_clip_classifier,
+        "clip_available": clip_available,
         "with_playlist": with_playlist,
         "recommend_top_k": recommend_top_k,
         "playlist_top_k": playlist_top_k,
@@ -140,6 +150,7 @@ def create_app(
             pipeline_features={
                 "use_selection": state["use_selection"],
                 "use_learned_classifier": state["use_learned_classifier"],
+                "clip_classifier_available": state["clip_available"],
                 "with_playlist": state["with_playlist"],
             },
         )
@@ -178,6 +189,7 @@ def create_app(
                 recommend_top_k=state["recommend_top_k"],
                 use_selection=state["use_selection"],
                 use_learned_classifier=state["use_learned_classifier"],
+                use_clip_classifier=state["use_clip_classifier"],
                 with_playlist=state["with_playlist"],
                 playlist_top_k=state["playlist_top_k"],
             )

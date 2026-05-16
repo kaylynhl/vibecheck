@@ -174,10 +174,11 @@ def test_health_returns_ok(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
     assert body["ok"] is True
     assert "pipeline_features" in body
     assert set(body["pipeline_features"]) == {
-        "use_selection",
-        "use_learned_classifier",
-        "with_playlist",
-    }
+            "use_selection",
+            "use_learned_classifier",
+            "clip_classifier_available",
+            "with_playlist",
+        }
 
 
 # ---------- /api/analyze ----------

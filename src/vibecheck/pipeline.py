@@ -28,6 +28,7 @@ def analyze_images(
     recommend_top_k: int = 10,
     use_selection: bool = False,
     use_learned_classifier: bool = False,
+    use_clip_classifier: bool | None = None,
     with_playlist: bool = False,
     playlist_top_k: int = 10,
 ) -> VibeAnalysisResult:
@@ -101,21 +102,55 @@ def analyze_images(
     timings_ms["extract_tags"] = _elapsed_ms(start)
 
     start = perf_counter()
-    if use_learned_classifier:
-        try:
-            from vibecheck.vibe.learned import load_bundle, score_vibes_learned
+    clip_used = False
+    vibe_scores: list = []
+    confidence_notes: list[str] = []
 
-            bundle = load_bundle()
-            vibe_scores, confidence_notes = score_vibes_learned(extracted_tags, bundle)
-            confidence_notes = list(confidence_notes)
-            confidence_notes.append(
-                f"Learned vibe classifier active (trained on {bundle.metadata.get('n_train', '?')} examples)."
-            )
+    # Primary path: CLIP-LoRA fine-tune. Auto-enabled when the artifacts are
+    # on disk; pass use_clip_classifier=False to force the legacy text path
+    # (useful for tests and ablations).
+    if use_clip_classifier is not False:
+        try:
+            from vibecheck.vibe.clip_lora import get_default_classifier
+
+            clf = get_default_classifier()
+            if clf.is_available:
+                clip_scores = clf.predict_vibe_scores(
+                    [image.data for image in normalized_inputs]
+                )
+                if clip_scores:
+                    vibe_scores = clip_scores
+                    confidence_notes = [
+                        f"CLIP-LoRA classifier active (rank-8 adapters on "
+                        f"CLIP-ViT-B/32, {len(clf.classes)} aesthetic classes)."
+                    ]
+                    clip_used = True
+            elif use_clip_classifier is True:
+                warnings.append(
+                    "CLIP-LoRA classifier requested but artifacts are missing "
+                    f"under {clf.artifacts_dir}; falling back to text scorers."
+                )
         except Exception as exc:
-            warnings.append(f"Learned classifier unavailable, falling back to hand-weighted: {exc}")
+            warnings.append(
+                f"CLIP-LoRA classifier failed ({exc}); falling back to text scorers."
+            )
+
+    if not clip_used:
+        if use_learned_classifier:
+            try:
+                from vibecheck.vibe.learned import load_bundle, score_vibes_learned
+
+                bundle = load_bundle()
+                vibe_scores, confidence_notes = score_vibes_learned(extracted_tags, bundle)
+                confidence_notes = list(confidence_notes)
+                confidence_notes.append(
+                    f"Learned vibe classifier active (trained on {bundle.metadata.get('n_train', '?')} examples)."
+                )
+            except Exception as exc:
+                warnings.append(f"Learned classifier unavailable, falling back to hand-weighted: {exc}")
+                vibe_scores, confidence_notes = score_vibes(extracted_tags, mode=mode)
+        else:
             vibe_scores, confidence_notes = score_vibes(extracted_tags, mode=mode)
-    else:
-        vibe_scores, confidence_notes = score_vibes(extracted_tags, mode=mode)
     timings_ms["score_vibes"] = _elapsed_ms(start)
 
     # Fallback: if the tag-based scorer has no real signal (e.g. the vision
@@ -125,7 +160,7 @@ def analyze_images(
     # earlier demos. This is the second layer of defence after the JSON
     # schema enforcement in groq_vision.py.
     top_raw = vibe_scores[0].score if vibe_scores else 0.0
-    if top_raw < 0.05 and raw_description.strip():
+    if not clip_used and top_raw < 0.05 and raw_description.strip():
         start = perf_counter()
         try:
             from vibecheck.vibe.embedding_match import score_vibes_by_caption
@@ -235,6 +270,7 @@ def analyze_images_to_dict(
     recommend_top_k: int = 10,
     use_selection: bool = False,
     use_learned_classifier: bool = False,
+    use_clip_classifier: bool | None = None,
     with_playlist: bool = False,
     playlist_top_k: int = 10,
 ) -> dict[str, object]:
@@ -247,6 +283,7 @@ def analyze_images_to_dict(
         recommend_top_k=recommend_top_k,
         use_selection=use_selection,
         use_learned_classifier=use_learned_classifier,
+        use_clip_classifier=use_clip_classifier,
         with_playlist=with_playlist,
         playlist_top_k=playlist_top_k,
     ).to_dict()
