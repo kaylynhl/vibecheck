@@ -12,30 +12,32 @@ held-out test split is used to compare four systems:
 ## Folder = label
 
 Each photo's label is its parent directory name. The current corpus has
-**430 photos across 18 aesthetic classes**, with each class capped at 40
-photos and a floor of 8 (anything sparser was dropped to keep stratified
+**523 photos across 20 aesthetic classes**, with each class capped at 40
+photos and a floor of 5 (anything sparser was dropped to keep stratified
 splits viable).
 
 | Folder                 | Photos | Aesthetic            |
 | ---------------------- | ------ | -------------------- |
-| `bohemian/`            | 8      | bohemian             |
+| `bohemian/`            | 11     | bohemian             |
 | `coastal_grandmother/` | 40     | coastal grandmother  |
 | `coquette/`            | 40     | coquette             |
 | `cottagecore/`         | 40     | cottagecore          |
-| `dark_academia/`       | 11     | dark academia        |
-| `grunge/`              | 37     | grunge               |
-| `indie_folk/`          | 11     | indie folk           |
-| `indie_sleaze/`        | 19     | indie sleaze         |
-| `lo_fi/`               | 12     | lo-fi                |
-| `mid_century_modern/`  | 22     | mid-century modern   |
+| `dark_academia/`       | 13     | dark academia        |
+| `grunge/`              | 40     | grunge               |
+| `indie_folk/`          | 15     | indie folk           |
+| `indie_sleaze/`        | 25     | indie sleaze         |
+| `lo_fi/`               | 13     | lo-fi                |
+| `mid_century_modern/`  | 37     | mid-century modern   |
 | `minimalist/`          | 40     | minimalist           |
 | `normcore/`            | 40     | normcore             |
 | `old_money/`           | 40     | old money            |
-| `quiet_luxury/`        | 18     | quiet luxury         |
-| `retro_70s/`           | 9      | retro 70s            |
-| `scandinavian/`        | 12     | scandinavian         |
+| `quiet_luxury/`        | 37     | quiet luxury         |
+| `retro_70s/`           | 10     | 70s retro            |
+| `scandinavian/`        | 26     | scandinavian         |
 | `soft_girl/`           | 14     | soft girl            |
-| `twee/`                | 17     | twee                 |
+| `streetwear/`          | 8      | streetwear           |
+| `twee/`                | 29     | twee                 |
+| `y2k/`                 | 5      | y2k                  |
 
 ## Readiness check
 
@@ -45,8 +47,7 @@ Before opening the Colab notebook, you can verify the dataset is intact:
 python scripts/check_eval_dataset.py
 ```
 
-The default gate is 8 photos per class. To cache the production Groq
-baseline once the check passes:
+To cache the production Groq baseline once the check passes:
 
 ```bash
 python scripts/export_groq_baseline.py
@@ -64,9 +65,10 @@ folder, so the same cache works after uploading `data/eval/` to Colab.
 - Filenames are not meaningful. Anything ending in `.jpg`, `.jpeg`,
   `.png`, `.heic`, `.heif`, or `.webp` is picked up.
 - Class imbalance: the 40-photo cap on the most populous classes was
-  chosen to limit head-class dominance during training. The 8-photo
+  chosen to limit head-class dominance during training. The 5-photo
   floor guarantees at least one test image per class for the stratified
-  20/20/60 split.
+  60/20/20 split; classes near that floor will have higher per-class
+  accuracy variance because their test sample is 1-3 photos.
 
 ## File format note
 
