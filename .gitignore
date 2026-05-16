@@ -71,5 +71,13 @@ data/clothing_raw/
 data/rooms_raw/
 data/eval/outfits
 data/eval/rooms
+dataset_compiled/
 spotify/spotify_data.csv 
 reddit/fashion-bert-output-v4
+
+# --- notebook / report artifacts ---
+plots_for_report/
+notebooks/artifacts/
+
+# --- repo-root noise ---
+/package-lock.json
