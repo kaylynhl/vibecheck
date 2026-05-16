@@ -18,6 +18,7 @@ import os
 import threading
 import time
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any
 
 import requests
@@ -112,6 +113,74 @@ class SpotifyClient:
                 self._token = self._fetch_token()
             return self._token.access_token
 
+    def get_tracks(
+        self,
+        ids: list[str],
+        *,
+        market: str | None = None,
+        max_retries: int = 3,
+        warn_on_error: bool = True,
+    ) -> list[dict[str, Any]]:
+        """Fetch metadata for up to 50 track IDs in a single /v1/tracks call.
+
+        Used to enrich tracks pulled from the local Kaggle catalog with the
+        one field the catalog lacks: album art. Returns the raw Spotify
+        track objects in the same order as ``ids``; missing IDs return
+        ``None`` per Spotify's contract, which we filter out.
+        """
+        ids = [i for i in ids if i]
+        if not ids:
+            return []
+        # /v1/tracks?ids=... caps at 50 per call. Split if the caller went over.
+        if len(ids) > 50:
+            collected: list[dict[str, Any]] = []
+            for i in range(0, len(ids), 50):
+                collected.extend(
+                    self.get_tracks(
+                        ids[i : i + 50],
+                        market=market,
+                        max_retries=max_retries,
+                        warn_on_error=warn_on_error,
+                    )
+                )
+            return collected
+
+        params: dict[str, Any] = {"ids": ",".join(ids)}
+        if market:
+            params["market"] = market
+
+        url = f"{SPOTIFY_API_BASE}/tracks"
+        session = self._session_get()
+
+        for attempt in range(max_retries):
+            token = self._get_token()
+            response = session.get(
+                url,
+                params=params,
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=self.timeout,
+            )
+            if response.status_code == 200:
+                tracks = response.json().get("tracks", []) or []
+                return [t for t in tracks if t]
+            if response.status_code == 401:
+                self._get_token(force_refresh=True)
+                continue
+            if response.status_code == 429:
+                wait = max(1, int(response.headers.get("Retry-After", "1") or "1"))
+                time.sleep(min(wait, 30))
+                continue
+            if warn_on_error:
+                import sys as _sys
+
+                print(
+                    f"[spotify] /tracks {response.status_code} for {len(ids)} ids: "
+                    f"{response.text[:150]}",
+                    file=_sys.stderr,
+                )
+            return []
+        return []
+
     def search_tracks(
         self,
         query: str,
@@ -189,3 +258,63 @@ def reset_default_client() -> None:
     global _DEFAULT_CLIENT
     with _DEFAULT_CLIENT_LOCK:
         _DEFAULT_CLIENT = None
+
+
+SPOTIFY_OEMBED_URL = "https://open.spotify.com/oembed"
+
+
+@lru_cache(maxsize=1024)
+def _fetch_oembed_thumbnail(track_id: str) -> str | None:
+    """Hit Spotify's public oEmbed endpoint and return the 300x300 cover URL.
+
+    oEmbed is auth-free and survives Spotify's November 2024 Client
+    Credentials restrictions (which broke /v1/tracks for new dev apps).
+    Cached in-process to keep the same playlist regeneration cheap.
+    """
+    if not track_id:
+        return None
+    try:
+        response = requests.get(
+            SPOTIFY_OEMBED_URL,
+            params={"url": f"https://open.spotify.com/track/{track_id}"},
+            timeout=5.0,
+        )
+    except requests.RequestException:
+        return None
+    if response.status_code != 200:
+        return None
+    try:
+        return response.json().get("thumbnail_url")
+    except ValueError:
+        return None
+
+
+def enrich_album_art(
+    tracks: list[dict[str, Any]],
+    *,
+    max_workers: int = 8,
+) -> None:
+    """Populate ``album_image`` on each track via Spotify's public oEmbed.
+
+    Used after ``recommend_tracks`` returns: the local Kaggle catalog has
+    every field except album art. oEmbed gives us a 300x300 cover per
+    track with one HTTP call (no auth). Calls are parallelised so a
+    top-10 playlist enriches in ~500ms instead of ~5s. Mutates ``tracks``
+    in place; failures are silent (the UI already handles missing art
+    with a music-note placeholder).
+    """
+    needs_art = [
+        t for t in tracks
+        if t.get("spotify_id") and not t.get("album_image")
+    ]
+    if not needs_art:
+        return
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    ids = [str(t["spotify_id"]) for t in needs_art]
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(ids))) as pool:
+        thumbs = list(pool.map(_fetch_oembed_thumbnail, ids))
+    for track, thumb in zip(needs_art, thumbs):
+        if thumb:
+            track["album_image"] = thumb

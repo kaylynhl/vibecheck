@@ -382,7 +382,20 @@ def recommend_tracks(
         seen_keys.add(key)
         deduped.append((score, track))
 
-    return [track.to_dict(score=score) for score, track in deduped[:top_k]]
+    results = [track.to_dict(score=score) for score, track in deduped[:top_k]]
+
+    # The local catalog has no album art. Enrich the final top-K with one
+    # /v1/tracks batch call (~200ms, no rate limit for 10 IDs). Silently
+    # no-ops if Spotify credentials are missing or the network is down --
+    # tracks then render with the music-note placeholder in the UI.
+    try:
+        from vibecheck.rec.spotify_client import enrich_album_art
+
+        enrich_album_art(results)
+    except Exception:
+        pass
+
+    return results
 
 
 # Process-wide encoder singleton so repeated requests don't reload the model.
