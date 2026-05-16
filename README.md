@@ -36,11 +36,6 @@ pip install -r requirements.txt
 python -m ipykernel install --user --name vibecheck --display-name "vibecheck"
 ```
 
-### 3) Run demo
-```bash
-make demo
-```
-
 ## Image-to-Vibe Pipeline
 
 The backend pipeline turns one or more room/outfit images into structured vibe analysis. It:
@@ -59,12 +54,6 @@ Main code paths:
 Required environment:
 - `GROQ_API_KEY` required
 - `GROQ_VISION_MODEL` optional override
-
-Run locally:
-```bash
-python scripts/demo.py --img path/to/image.jpg --mode room
-python scripts/demo.py --img room1.jpg --img room2.jpg --mode room
-```
 
 Current limitations:
 - depends on Groq returning valid structured output
@@ -121,7 +110,6 @@ make setup   # create venv + install deps + register jupyter kernel
 make fmt     # black + isort
 make lint    # ruff
 make test    # pytest
-make demo    # scripts/demo.py
 ```
 
 ---

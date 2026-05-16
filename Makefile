@@ -5,7 +5,7 @@ VENV := .venv
 PIP := $(VENV)/bin/pip
 PYBIN := $(VENV)/bin/python
 
-.PHONY: help venv install setup fmt lint test demo serve eval-check groq-baseline clean
+.PHONY: help venv install setup fmt lint test serve eval-check groq-baseline clean
 
 help:
 	@echo "Targets:"
@@ -13,7 +13,6 @@ help:
 	@echo "  make fmt     - format (black + isort)"
 	@echo "  make lint    - lint (ruff)"
 	@echo "  make test    - run tests (pytest)"
-	@echo "  make demo    - run demo script (scripts/demo.py)"
 	@echo "  make eval-check - check labeled photo counts for CLIP-LoRA"
 	@echo "  make groq-baseline - cache Groq predictions for data/eval photos"
 	@echo "  make clean   - remove caches + build artifacts"
@@ -38,9 +37,6 @@ lint: venv
 
 test: venv
 	@$(VENV)/bin/pytest -q
-
-demo: venv
-	@$(PYBIN) scripts/demo.py
 
 serve: venv
 	@$(PYBIN) scripts/serve.py
