@@ -13,6 +13,7 @@ help:
 	@echo "  make fmt     - format (black + isort)"
 	@echo "  make lint    - lint (ruff)"
 	@echo "  make test    - run tests (pytest)"
+	@echo "  make serve   - run FastAPI backend (uvicorn, :8000, autoreload)"
 	@echo "  make eval-check - check labeled photo counts for CLIP-LoRA"
 	@echo "  make groq-baseline - cache Groq predictions for data/eval photos"
 	@echo "  make clean   - remove caches + build artifacts"
@@ -26,7 +27,7 @@ install: venv
 
 setup: install
 	@$(PYBIN) -m ipykernel install --user --name vibecheck --display-name "vibecheck"
-	@echo "✅ Setup complete. Activate with: source .venv/bin/activate"
+	@echo "Setup complete. Activate with: source .venv/bin/activate"
 
 fmt: venv
 	@$(VENV)/bin/black .

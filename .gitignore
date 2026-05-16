@@ -6,7 +6,6 @@ Thumbs.db
 .vscode/
 .idea/
 
-# --- Python ---
 __pycache__/
 *.py[cod]
 *.pyo
@@ -20,7 +19,6 @@ build/
 .ruff_cache/
 .mypy_cache/
 
-# --- Environments / secrets ---
 .venv/
 venv/
 .env
@@ -30,10 +28,8 @@ venv/
 *.pem
 *.key
 
-# --- Notebooks ---
 .ipynb_checkpoints/
 
-# --- Data / outputs (do not commit) ---
 data/raw/
 data/processed/
 outputs/
@@ -48,25 +44,19 @@ models/*
 *.pth
 *.onnx
 
-# Production CLIP-LoRA artifacts ARE committed (they're small, ~3 MB)
 !models/clip_lora/
 !models/clip_lora/**
 
-# --- Audio ---
 *.wav
 *.mp3
 *.flac
 *.m4a
 
-# --- Archives ---
 *.zip
 *.tar.gz
 
-# data_eval.zip is the bundled training/eval image set that ships with the
-# notebook so it can be re-run on Colab. Keep it committed.
 !data_eval.zip
 
-# --- Personal scratch (not part of the submitted project) ---
 notes.md
 notes/
 TODO.md
@@ -74,7 +64,6 @@ scratch/
 PLAN.md
 HANDOFF.md
 
-# --- raw files ---
 data/clothing_raw/
 data/rooms_raw/
 data/eval/outfits
@@ -83,9 +72,7 @@ dataset_compiled/
 spotify/spotify_data.csv 
 reddit/fashion-bert-output-v4
 
-# --- notebook / report artifacts ---
 plots_for_report/
 notebooks/artifacts/
 
-# --- repo-root noise ---
 /package-lock.json

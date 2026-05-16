@@ -1,11 +1,15 @@
 # vibecheck
 
-Multi-photo aesthetic (“vibe”) classification + recommendation.
+Multi-photo aesthetic ("vibe") classification + recommendation.
 
-Given one or more photos of a room/outfit, the system will:
-1) infer interpretable visual **tags** (palette, lighting, texture/clutter, patterns, silhouette cues)
-2) predict the most likely **vibe/aesthetic** (top-k, potentially multi-label)
-3) recommend **additions** (items/accessories/decor) and a **playlist** that matches the vibe
+Given one or more photos of a room or outfit, the system will:
+1. Infer interpretable visual **tags** (palette, lighting, texture/clutter, patterns, silhouette cues).
+2. Predict the most likely **vibe / aesthetic** using a CLIP-LoRA classifier trained on 20 aesthetic classes.
+3. Recommend matching **items** (clothing / decor) and a **Spotify playlist**.
+
+The repo has two runnable pieces:
+- A Python FastAPI backend that runs the ML pipeline (`src/vibecheck/`, served by `scripts/serve.py`).
+- An Expo React Native iOS app that talks to the backend over HTTP (`mobile/`).
 
 ## Team
 - Julia Kundu (jk2578)
@@ -14,140 +18,184 @@ Given one or more photos of a room/outfit, the system will:
 
 ---
 
-## Quickstart
+## Prerequisites
 
-### 1) Clone
+- Python 3.10+
+- Node.js 18+ and npm
+- Either Xcode (iOS simulator) or [Expo Go](https://apps.apple.com/app/expo-go/id982107779) on a physical iPhone
+- A free Groq account → [console.groq.com](https://console.groq.com)
+- A free Spotify developer app → [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
+
+---
+
+## 1. Run the backend (FastAPI)
+
+### 1.1 Clone and install
+
 ```bash
 git clone https://github.com/kaylynhl/vibecheck.git
 cd vibecheck
-```
-
-### 2) Install (recommended)
-```bash
 make setup
 ```
 
-If you don’t have `make`:
+This creates `.venv/`, installs everything in `requirements.txt`, and registers a Jupyter kernel called `vibecheck`.
+
+If you don't have `make`:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -U pip
 pip install -r requirements.txt
-python -m ipykernel install --user --name vibecheck --display-name "vibecheck"
 ```
 
-## Image-to-Vibe Pipeline
+### 1.2 Configure backend API keys
 
-The backend pipeline turns one or more room/outfit images into structured vibe analysis. It:
-- normalizes local image inputs
-- calls Groq vision for structured visual analysis
-- extracts normalized tags
-- scores and ranks likely vibes
-- returns a cleaned JSON-ready result for downstream consumers
+Copy the example env file and fill it in:
+```bash
+cp .env.example .env
+```
 
-Main code paths:
-- `src/vibecheck/pipeline.py`
-- `src/vibecheck/features/`
-- `src/vibecheck/tags/`
-- `src/vibecheck/vibe/`
+Open `.env` and set these values (the file is loaded by `src/vibecheck/server/app.py` via `python-dotenv`, so any process started from the repo root picks them up):
 
-Required environment:
-- `GROQ_API_KEY` required
-- `GROQ_VISION_MODEL` optional override
+| Variable | Where to get it | Required for |
+|---|---|---|
+| `GROQ_API_KEY` | console.groq.com → API Keys → Create | Image → tags (every `/api/analyze` request) |
+| `SPOTIFY_CLIENT_ID` | developer.spotify.com/dashboard → Create app → copy "Client ID" | Album cover art + the mobile PKCE flow |
+| `SPOTIFY_CLIENT_SECRET` | Same Spotify dashboard, same app → "View client secret" | Backend Spotify token exchange |
 
-Current limitations:
-- depends on Groq returning valid structured output
-- tag extraction and vibe ranking are still heuristic
-- the backend stops at analysis; recommendation generation is still downstream work
+The remaining vars in `.env.example` (`VIBECHECK_CORS_ORIGINS`, `VIBECHECK_HOST`, `VIBECHECK_PORT`, `VIBECHECK_RELOAD`) are optional; defaults are fine for local dev.
 
-Easiest next improvements:
-- expand tag vocabulary and synonym coverage
-- wrap `vibecheck.pipeline.analyze_images(...)` in an API endpoint
-- tune score weights with real examples
-- replace heuristic matching with learned retrieval/classification later
+> Both `.env` files are gitignored. Only the `.env.example` templates are committed.
 
-See `mobile/README.md` for app-facing integration guidance.
+### 1.3 Start the server
+
+```bash
+make serve
+```
+
+This runs `python scripts/serve.py`, which launches uvicorn on `0.0.0.0:8000` with autoreload and prints:
+- `http://localhost:8000` — for the iOS simulator
+- `http://<your-laptop-LAN-ip>:8000` — for a real iPhone on the same Wi-Fi
+- The exact `EXPO_PUBLIC_API_URL=...` line to drop into `mobile/.env`
+
+Sanity-check it from another terminal:
+```bash
+curl http://localhost:8000/api/health
+```
+
+A healthy response looks like `{"ok": true, "prewarmed": true, ...}`. The first hit takes ~10s because the server pre-warms the FashionBERT encoder and FAISS indexes on startup.
 
 ---
 
-## Mobile app (iOS)
-
-**Prerequisites:** Node.js 18+, Xcode (for simulator) or [Expo Go](https://apps.apple.com/app/expo-go/id982107779) on your iPhone.
-
-To try the React Native Expo app:
+## 2. Run the mobile app (Expo)
 
 ```bash
 cd mobile
-npm install
+npm install        # if peer-dep errors: npm install --legacy-peer-deps
+```
+
+### 2.1 Configure mobile env
+
+```bash
+cp .env.example .env
+```
+
+Open `mobile/.env` and set:
+
+| Variable | What to put | Notes |
+|---|---|---|
+| `EXPO_PUBLIC_API_URL` | `http://localhost:8000` (simulator) **or** `http://<laptop-LAN-ip>:8000` (real iPhone) | The LAN URL is printed by `make serve` |
+| `EXPO_PUBLIC_SPOTIFY_CLIENT_ID` | The **public** Client ID from the same Spotify dashboard app you used for the backend | PKCE — no secret on device |
+| `EXPO_PUBLIC_USE_MOCK` | leave blank | Set to `1` to force the offline mock pipeline (UI work only) |
+
+In the Spotify developer dashboard, also add these to the app's **Redirect URIs**:
+- `vibecheck://oauth-callback` (standalone build)
+- The `exp://...` URL that Metro prints when you run `npm start` (for Expo Go)
+
+### 2.2 Launch
+
+```bash
 npm start
 ```
 
-If `npm install` fails with peer dependency errors: `npm install --legacy-peer-deps`
-
-**Option A — Expo Go (easiest)**  
-1. Install [Expo Go](https://apps.apple.com/app/expo-go/id982107779) on your iPhone  
-2. Scan the QR code from the terminal (or enter the URL manually)  
-3. Ensure your phone and Mac are on the same WiFi
-
-**Option B — iOS Simulator**  
-```bash
-npm run ios
-```
-
-**Option C — Physical iPhone (dev build)**  
-```bash
-npx expo run:ios --device
-```
-Connect your iPhone via USB first. You may need to trust your developer certificate: Settings → General → VPN & Device Management.
-
-> See `mobile/README.md` for full docs, project structure, and backend integration.
+Then pick one:
+- **Expo Go (easiest):** scan the QR code from your iPhone. Phone + laptop must be on the same Wi-Fi, and `EXPO_PUBLIC_API_URL` must point to the laptop's LAN IP.
+- **iOS simulator:** `npm run ios`
+- **Physical iPhone via USB (dev build):** `npx expo run:ios --device`
 
 ---
 
-## Common commands
+## 3. Reproduce the CLIP-LoRA evaluation (`notebooks/demo.ipynb`)
+
+This notebook produced the rank-ablation, per-class heatmap, and confusion-matrix figures used in the final report.
+
+We trained a LoRA-fine-tuned CLIP-ViT-B/32 image classifier on a labeled photo set covering the 20 aesthetic categories under `data/eval/`. The notebook walks through data loading, two baselines, our LoRA fine-tune, a rank ablation, and the final comparison.
+
+Systems compared on the same held-out test split:
+1. **CLIP zero-shot** — frozen CLIP with class-name prompts.
+2. **CLIP linear probe** — frozen CLIP features, sklearn logistic regression head.
+3. **CLIP + LoRA (ours)** — rank-{1, 4, 8, 16} adapters on the vision tower; **r = 8** is what production ships.
+
+The full pipeline runs in roughly 15–25 minutes on a Colab T4 GPU.
+
+### 3.1 Run on Colab
+
+1. Open `notebooks/demo.ipynb` in Colab: **File → Open notebook → GitHub tab → `kaylynhl/vibecheck` → `notebooks/demo.ipynb`**.
+2. Set the runtime to **T4 GPU** (Runtime → Change runtime type).
+3. Click **Run all**.
+4. When the first cell prompts you, upload `data_eval.zip` (see 3.2).
+
+The last cell exports all report figures to `plots_for_report/*.png` and zips them for download.
+
+### 3.2 Where to get `data_eval.zip`
+
+- **In this repo:** `data_eval.zip` is committed to the repo root (~17 MB).
+- **Via Google Drive:** the link is in the Project Report document if you don't have a local checkout.
+
+The zip is a flat archive of `data/eval/<aesthetic>/*.jpg` covering all 20 classes (~518 photos total).
+
+---
+
+## 4. Common commands
+
 ```bash
-make setup   # create venv + install deps + register jupyter kernel
-make fmt     # black + isort
-make lint    # ruff
-make test    # pytest
+make setup          # create venv + install deps + register jupyter kernel
+make serve          # run FastAPI backend (uvicorn, :8000, autoreload)
+make test           # pytest
+make fmt            # black + isort
+make lint           # ruff
+make eval-check     # print per-class photo counts under data/eval/
+make groq-baseline  # cache Groq Vision predictions for the eval set
+make clean          # remove caches + build artifacts
 ```
 
 ---
 
 ## Project structure
+
 ```text
 vibecheck/
-  mobile/           # React Native Expo iOS app
-  data/
-    raw/            # not committed
-    processed/      # not committed
-  notebooks/        # exploration only
-  src/
-    vibecheck/
-      features/
-      tags/
-      vibe/
-      rec/
-      utils/
-  scripts/
-  tests/
-  outputs/          # not committed
+  mobile/                          # React Native Expo iOS app
+  src/vibecheck/
+    pipeline.py                    # end-to-end image -> vibe + recs entry point
+    features/groq_vision.py        # Groq vision feature extraction
+    vibe/clip_lora.py              # CLIP + LoRA aesthetic classifier (production)
+    rec/                           # retrieval + selection for items + playlists
+    server/app.py                  # FastAPI app
+  notebooks/demo.ipynb             # CLIP-LoRA training + ablation + plots
+  data/eval/<aesthetic>/           # labeled images (gitignored; ships in data_eval.zip)
+  data_eval.zip                    # bundled image set for Colab
+  models/clip_lora/                # production LoRA adapters + classifier head
+  plots_for_report/                # exported figures (gitignored)
+  scripts/                         # helper scripts (serve, eval-check, ...)
+  tests/                           # pytest suite
 ```
-
-> Note: `data/raw`, `data/processed`, and `outputs` are gitignored.
-
----
-
-## Workflow
-- Create a branch per feature: `feature/<name>`
-- Open PRs for review before merging to `main`
-- Keep notebooks out of core logic; put reusable code under `src/`
 
 ---
 
 ## Notes
-- Python: 3.10+ recommended
-- If installs fail on Apple Silicon, try:
-  ```bash
-  python -m pip install -U pip setuptools wheel
-  ```
+
+- Python 3.10+ recommended.
+- If installs fail on Apple Silicon, run `python -m pip install -U pip setuptools wheel` before `pip install -r requirements.txt`.
+- The backend pre-warms the encoder + FAISS indexes on startup, so the first `/api/analyze` call takes ~10s; subsequent calls are fast.
+- `data/eval/<class>/*.{jpg,png,heic,…}` is gitignored — the canonical training/eval set ships as `data_eval.zip`.
