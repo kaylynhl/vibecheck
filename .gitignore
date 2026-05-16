@@ -62,6 +62,10 @@ models/*
 *.zip
 *.tar.gz
 
+# data_eval.zip is the bundled training/eval image set that ships with the
+# notebook so it can be re-run on Colab. Keep it committed.
+!data_eval.zip
+
 # --- Personal scratch (not part of the submitted project) ---
 notes.md
 notes/
